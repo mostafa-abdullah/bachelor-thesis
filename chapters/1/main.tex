@@ -3,88 +3,25 @@
 
 \chapter{Introduction}\label{chapter:introduction}
 
-\section{Section}
-Citation test~\parencite{latex}.
+“The cost to fix an error found after product release was four to five times as much as one uncovered during design, and up to 100 times more than one identified in the maintenance phase.”, reported by the System Science Institute at IBM. This fact justifies the increasing investments in software analysis, software verification and the need to make programs more reliable and safe.
 
-\subsection{Subsection}
+In Python, being a dynamically-typed language, the variables are bound to their types during the execution time. This may look appealing because programs have more type flexibility, and they do not need to contain the writing overhead for the type system, leading to shorter and quicker to write code. However, this comes at the cost of losing many static guarantees of program correctness. Dynamically-typed languages perform type checking at runtime, while statically typed languages perform type checking at compile time. Therefore, some type errors that can be detected at compile time in a statically-typed system, may lead the system to crash at runtime in a dynamically-typed one, incurring high costs and a harder debugging experience.
 
-See~\autoref{tab:sample}, \autoref{fig:sample-drawing}, \autoref{fig:sample-plot}, \autoref{fig:sample-listing}.
+In this thesis, we are presenting a tool for static type inference and static type checking for a subset of Python 3. The aim of the tool is to gain the benefits of static typing while maintaining some (yet not all) dynamic features of Python. We discuss later the details of the dynamic limitations imposed on the inferable Python programs.
 
-\begin{table}[htpb]
-	\caption[Example table]{An example for a simple table.}\label{tab:sample}
-	\centering
-	\begin{tabular}{l l l l}
-		\toprule
-		A & B & C & D \\
-		\midrule
-		1 & 2 & 1 & 2 \\
-		2 & 3 & 2 & 3 \\
-		\bottomrule
-	\end{tabular}
-\end{table}
+The type inference is based on a nominal static type system that we define in later chapters. The type inference is intended to be integrated into Lyra and VerifySCION, two ongoing projects at the Chair of Programming Methodology at ETH Zurich, which aim to develop a static analyzer and a program verifier for Python programs.
 
-\begin{figure}[htpb]
-	\centering
-	% This should probably go into a file in figures/
-	\begin{tikzpicture}[node distance=3cm]
-	\node (R0) {$R_1$};
-	\node (R1) [right of=R0] {$R_2$};
-	\node (R2) [below of=R1] {$R_4$};
-	\node (R3) [below of=R0] {$R_3$};
-	\node (R4) [right of=R1] {$R_5$};
+\section{Related Work}
+Many attempts have been made to infer types for Python, each of which had its own goals and limitations. We discuss here some work that we have studied, and we present some of their limitations and how similar and/or different they are from our tool.
+
+\subsection{MyPy}
+MyPy is a static type checker for Python. It depends on defining type annotations for almost all the constructs in the Python program to be checked. In addition, it performs local type inference. However, this type inference cannot be extended beyond local scopes. It requires that function definitions to be fully type-annotated and cannot infer function calls whose return type annotation is not specified. For example, MyPy will fail to infer the type of variable \lstinline|x| in the following program:
+
+\begin{lstlisting}[language=Python]
+def f():
+	return "string"
 	
-	\path[every node]
-	(R0) edge (R1)
-	(R0) edge (R3)
-	(R3) edge (R2)
-	(R2) edge (R1)
-	(R1) edge (R4);
-	\end{tikzpicture}
-	\caption[Example drawing]{An example for a simple drawing.}\label{fig:sample-drawing}
-\end{figure}
+x = f()  # Infer type Any for x
+\end{lstlisting}
 
-\begin{figure}[htpb]
-	\centering
-	
-	\pgfplotstableset{col sep=&, row sep=\\}
-	% This should probably go into a file in data/
-	\pgfplotstableread{
-		a & b    \\
-		1 & 1000 \\
-		2 & 1500 \\
-		3 & 1600 \\
-	}\exampleA
-	\pgfplotstableread{
-		a & b    \\
-		1 & 1200 \\
-		2 & 800 \\
-		3 & 1400 \\
-	}\exampleB
-	% This should probably go into a file in figures/
-	\begin{tikzpicture}
-	\begin{axis}[
-	ymin=0,
-	legend style={legend pos=south east},
-	grid,
-	thick,
-	ylabel=Y,
-	xlabel=X
-	]
-	\addplot table[x=a, y=b]{\exampleA};
-	\addlegendentry{Example A};
-	\addplot table[x=a, y=b]{\exampleB};
-	\addlegendentry{Example B};
-	\end{axis}
-	\end{tikzpicture}
-	\caption[Example plot]{An example for a simple plot.}\label{fig:sample-plot}
-\end{figure}
-
-\begin{figure}[htpb]
-	\centering
-	\begin{tabular}{c}
-		\begin{lstlisting}[language=SQL]
-		SELECT * FROM tbl WHERE tbl.str = "str"
-		\end{lstlisting}
-	\end{tabular}
-	\caption[Example listing]{An example for a source code listing.}\label{fig:sample-listing}
-\end{figure}
+What MyPy intends to provide is closely related to the goal of our tool, that is to provide static type checking for the program. However, we try to reduce the writing overhead in defining the type annotations for the program constructs.
