@@ -1,19 +1,13 @@
 \PassOptionsToPackage{table,svgnames,dvipsnames}{xcolor}
 
+\usepackage{listings}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[sc]{mathpazo}
 \usepackage[ngerman,american]{babel}
 \usepackage[autostyle]{csquotes}
 \usepackage[%
-  backend=biber,
-  url=false,
-  style=alphabetic,
-  maxnames=4,
-  minnames=3,
-  maxbibnames=99,
-  giveninits,
-  uniquename=init]{biblatex} % TODO: adapt citation style
+  backend=biber]{biblatex} % TODO: adapt citation style
 \usepackage{graphicx}
 \usepackage{scrhack} % necessary for listings package
 \usepackage{listings}
@@ -49,6 +43,7 @@
 \definecolor{TUMAccentGreen}{HTML}{A2AD00}
 \definecolor{TUMAccentLightBlue}{HTML}{98C6EA}
 \definecolor{TUMAccentBlue}{HTML}{64A0C8}
+\definecolor{DarkGreen}{HTML}{008800}
 
 % Settings for pgfplots
 \pgfplotsset{compat=newest}
@@ -63,5 +58,7 @@
   columns=fullflexible,
   autogobble,
   keywordstyle=\bfseries\color{TUMBlue},
-  stringstyle=\color{TUMAccentGreen}
+  stringstyle=\color{DarkGreen},
+  xleftmargin=.2\textwidth, xrightmargin=.2\textwidth
 }
+

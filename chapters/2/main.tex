@@ -2,4 +2,30 @@
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 
 \chapter{Background Information}\label{chapter:background}
-\input{chapters/2/sections/1}
+
+\section{Related Work}
+Many attempts have been made to infer types for Python, each of which had its own goals and limitations. We discuss here some work that we have studied, and we present some of their limitations and how similar and/or different they are from our tool.
+
+\subsection{Type Inference Algorithms}
+There are two type inference algorithms primarily used at the time of writing this thesis: Hindley-Milner algorithm and the Cartesian Product algorithm.
+
+\subsubsection{Hindley-Milner}
+bla
+
+
+\subsection{Mypy \cite{mypy}}
+Mypy is a static type checker for Python. It depends on defining type annotations for almost all the constructs in the Python program to be checked. In addition, it performs local type inference. However, this type inference cannot be extended beyond local scopes. It requires that function definitions to be fully type-annotated and cannot infer function calls whose return type annotation is not specified. For example, mypy will fail to infer the type of variable \lstinline|x| in the following program:
+
+\begin{lstlisting}[language=Python]
+def f():
+return "string"
+
+x = f()  # Infer type Any for x
+\end{lstlisting}
+
+What mypy intends to provide is closely related to the goal of our tool, that is to provide static type checking for the program. However, we aim to reduce (and sometimes eliminate) the writing overhead in defining the type annotations for the program constructs.
+
+
+\subsection{Inferência de tipos em Python \cite{porto}}
+The thesis \cite{porto} describes a static type system defined for a restricted version of RPython, and presents static type inference ideas based on this type system. The work presented in \cite{porto} also describes type inference implementation for Python expressions (like numbers, lists, dictionaries, binary and
+unary operations, etc.), assignment statements and conditional statements. It also gives an idea about inferring polymorphic and non-polymorphic function calls, class definitions and class instantiation. However, the approach they take has a handful of limitations and is not applicable to real Python code. It does not describe inferring function arguments, which is a critical step in the inference of function definitions and function calls. Accordingly, and similar to mypy, the inference they present is not extensible beyond local scopes inference.
