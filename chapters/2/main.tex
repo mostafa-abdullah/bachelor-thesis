@@ -10,15 +10,16 @@ Many attempts have been made to infer types for Python, each of which had its ow
 There are two type inference algorithms primarily used at the time of writing this thesis: Hindley-Milner algorithm and the Cartesian Product algorithm.
 
 \subsubsection{Hindley-Milner}
-bla
-
+% TODO
+\subsubsection{Cartesian Product}
+% TODO
 
 \subsection{Mypy \cite{mypy}}
 Mypy is a static type checker for Python. It depends on defining type annotations for almost all the constructs in the Python program to be checked. In addition, it performs local type inference. However, this type inference cannot be extended beyond local scopes. It requires that function definitions to be fully type-annotated and cannot infer function calls whose return type annotation is not specified. For example, mypy will fail to infer the type of variable \lstinline|x| in the following program:
 
 \begin{lstlisting}[language=Python]
 def f():
-return "string"
+	return "string"
 
 x = f()  # Infer type Any for x
 \end{lstlisting}
@@ -29,3 +30,68 @@ What mypy intends to provide is closely related to the goal of our tool, that is
 \subsection{Inferência de tipos em Python \cite{porto}}
 The thesis \cite{porto} describes a static type system defined for a restricted version of RPython, and presents static type inference ideas based on this type system. The work presented in \cite{porto} also describes type inference implementation for Python expressions (like numbers, lists, dictionaries, binary and
 unary operations, etc.), assignment statements and conditional statements. It also gives an idea about inferring polymorphic and non-polymorphic function calls, class definitions and class instantiation. However, the approach they take has a handful of limitations and is not applicable to real Python code. It does not describe inferring function arguments, which is a critical step in the inference of function definitions and function calls. Accordingly, and similar to mypy, the inference they present is not extensible beyond local scopes inference.
+
+
+\section{SMT Solving with Z3 \cite{z3}}
+\textbf{Satisfiability Modulo Theories (SMT)} is a decision problem for first-order logic formulas. Which means, it is the problem which determines whether a given first-order logic formula, whose variables may have several interpretations, is satisfiable or not.
+
+SMT solving is a generalization of boolean satisfiability (SAT) solving. It can reason about a larger set of first-order theories than SAT theories, like those involving real numbers, integers, bit vectors and arrays.\\
+
+\textbf{Z3 \cite{z3}} is an efficient SMT solver, developed by Microsoft Research in 2007 with built-in support for theories of linear and nonlinear arithmetic, bit vectors, arrays, data-types, quantifiers and strings.
+
+Z3 is now widely used in software analysis and program verification. For instance, 50 bugs were found in Windows kernel code after using Z3 to verify Windows components.\\
+
+In our static type inference tool, we depend primarily on Z3 to provide a types model that satisfies all the Python program semantics.
+
+\subsection{Z3 semantics}
+We explain here all the relevant Z3 semantics that we will be using in our tool. For convenience, we will provide the explanation of these semantics in Z3Py, a Python interface for the Z3 solver, since we will be using this interface semantics throughout this thesis. This section targets those who are new to Z3. Those who are already familiar with these Z3 semantics can skip this section.
+
+\subsubsection{Z3 Sort}
+It is the building component of Z3 type system. \textbf{Sorts} in Z3 are equivalent to \textbf{data types} in most programming languages. Examples of a sort in Z3 include \lstinline|Bool|, \lstinline|Int| and \lstinline|Real|.
+
+\subsubsection{Constant}
+It is a symbol that builds the first-order formula which we are trying to solve with Z3. A Z3 solution to the SMT problem will assign a value to this constant that satisfies the given formula.
+
+Each constant in Z3 has its own type (sort), and the value assigned to it in the SMT solution is of the same sort as this constant. The following example declares two constant, namely \lstinline|x| and \lstinline|y|, of type \lstinline|Int| and queries Z3 for a solution for the given constraints.
+
+\begin{lstlisting}[language=python]
+x = Int("x")
+y = Int("x")
+solve(x == 1, y == x + 1)
+
+# model: x = 1, y = 2
+\end{lstlisting}
+
+
+\subsubsection{Axiom}
+It is the constraint imposed on problem constants that needs to be satisfied by values assigned to these constants. In the example above, \lstinline|x == 1| and \lstinline|y == x + 1| are two axioms.
+
+Any Z3 expression that can evaluate to the Z3 \lstinline|Bool| sort can qualify as a Z3 axiom. For instance, \lstinline|x < y + x + 2|, \lstinline|y != 0| and \lstinline|x <= y| are all Z3 axioms.
+
+
+\subsubsection{Logical Connectives}
+Z3 supports most commonly used logical connectives in first-order logic. It supports negation (not), conjunction (and), disjunction (or), implication and bi-implication (equivalence). The syntax for these connectives in Z3Py is given below.\\
+\textbf{Negation}: \lstinline|Not(some_axiom)|\\
+\textbf{Conjunction}: \lstinline|And(one_or_more_axiom)|\\
+\textbf{Disjunction}: \lstinline|Or(one_or_more_axiom)|\\
+\textbf{Implication}: \lstinline|Implies(first_axiom, second_axiom|\\
+\textbf{Bi-implication}: \lstinline|first_axiom == second_axiom|\\
+
+
+\subsubsection{Functions}
+Functions are the basic building blocks of the SMT formula. Every constant can be considered as a function which takes no arguments and returns this constant.
+Z3 functions are \textbf{total} that is they are defined for all the domain elements. Moreover, functions (and constants) in Z3 are called \textbf{uninterpreted}, that is they allow any interpretation (may be more than one) which is consistent with the imposed constraints. Which means there is no prior interpretation attached before solving the SMT problem. Therefore, we may use the terms uninterpreted constant and variable interchangeably.
+
+Z3 functions map one or more sort (type) of the domain to a result sort.
+
+Below is an example that illustrates uninterpreted functions and constants.
+
+\begin{lstlisting}[language=python]
+x = Int('x')
+y = Int('y')
+f = Function('f', IntSort(), IntSort())
+solve(f(f(x)) == x, f(x) == y, x != y)
+
+# model:
+# x = 0, y = 1, f = [0 -> 1, 1 -> 0, else -> 1]
+\end{lstlisting}
