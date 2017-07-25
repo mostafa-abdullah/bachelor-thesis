@@ -62,6 +62,12 @@ solve(x == 1, y == x + 1)
 # model: x = 1, y = 2
 \end{lstlisting}
 
+A constant of any sort can be created with the following syntax:
+
+\begin{lstlisting}[language=python]
+x = Const("x", some_sort)
+y = Const("y", IntSort())
+\end{lstlisting}
 
 \subsubsection{Axiom}
 It is the constraint imposed on problem constants that needs to be satisfied by values assigned to these constants. In the example above, \lstinline|x == 1| and \lstinline|y == x + 1| are two axioms.
@@ -72,8 +78,8 @@ Any Z3 expression that can evaluate to the Z3 \lstinline|Bool| sort can qualify 
 \subsubsection{Logical Connectives}
 Z3 supports most commonly used logical connectives in first-order logic. It supports negation (not), conjunction (and), disjunction (or), implication and bi-implication (equivalence). The syntax for these connectives in Z3Py is given below.\\
 \textbf{Negation}: \lstinline|Not(some_axiom)|\\
-\textbf{Conjunction}: \lstinline|And(one_or_more_axiom)|\\
-\textbf{Disjunction}: \lstinline|Or(one_or_more_axiom)|\\
+\textbf{Conjunction}: \lstinline|And(one_or_more_axioms)|\\
+\textbf{Disjunction}: \lstinline|Or(one_or_more_axioms)|\\
 \textbf{Implication}: \lstinline|Implies(first_axiom, second_axiom|\\
 \textbf{Bi-implication}: \lstinline|first_axiom == second_axiom|\\
 
@@ -95,3 +101,73 @@ solve(f(f(x)) == x, f(x) == y, x != y)
 # model:
 # x = 0, y = 1, f = [0 -> 1, 1 -> 0, else -> 1]
 \end{lstlisting}
+
+\subsubsection{Data-types}
+Z3 provides a convenient way for declaring algebraic data-types (a kind of composite data-types), which is a sort that can constructed from other sorts or data-types.
+
+Before going through an example, it is important to define two constructs in Z3 data-types: Constructors and accessors. With a \textbf{constructor}, different variants of the data-type can be created. Each of these variants may have its own typed attributes. An \textbf{accessor} is a function that can fetch these attributes stored within a data-type instance.
+
+The following example demonstrates declaring and using data-types in Z3. We create a data-type representing a binary tree. The node of this tree may have two variants: Either a leaf with same value attached to it, or an inner node with left and right references two its left and right subtrees respectively.
+
+\begin{lstlisting}[language=python]
+Tree = Datatype("Tree")
+
+Tree.declare("leaf", ("value", IntSort()))
+Tree.declare("inner_node", ("left", Tree), ("right", Tree))
+
+Tree = Tree.create()
+
+leaf_constructor = Tree.leaf
+inner_node_constructor = Tree.inner_node
+
+left_accessor = Tree.left
+right_accessor = Tree.right
+value_accessor = Tree.value
+\end{lstlisting}
+
+A constructor is declared for each variant of the tree node. The leaf has an \lstinline|Int| attribute representing the value it carries. The \lstinline|inner_node| constructor has two arguments. Each attribute has its own accessor function.
+
+Below on the left is an example of encoding the tree on the right using the example above.
+
+
+\begin{minipage}[c]{0\textwidth}
+	\begin{flushleft}
+\begin{lstlisting}[language=python]
+leaf_1 = leaf_constructor(10)
+leaf_2 = leaf_constructor(20)
+leaf_3 = leaf_constructor(30)
+
+node_2 = inner_node_constructor(leaf_1, leaf_2)
+node_1 = inner_node_constructor(node_2, leaf_3)
+\end{lstlisting}
+	\end{flushleft}
+\end{minipage}%
+\begin{minipage}[c]{1.1\textwidth}
+	\begin{flushright}
+		\Tree[.{node 1} [.{node 2} {leaf 1 (10)} {leaf 2 (20)} ] {leaf 3 (30)} ]
+	\end{flushright}
+\end{minipage}
+
+
+\subsubsection{Quantifiers}
+In addition to quantifier-free formulas, Z3 can also solve formulas involving quantifiers. Z3 uses different approaches to solve formulas with quantifiers. The only one which we are concerned with and we will be using in our type inference tool is the \textit{pattern-based quantifier instantiation} approach. This approach works by annotating the quantified formula with some pattern annotations, and these formulas are only instantiated when these patterns are matched during the search context.
+
+Z3 supports two kinds of quantifiers: \textit{Universal} and \textit{Existential} quantifiers.
+
+Below is an example demonstrating using both kinds of quantifiers in Z3Py.
+
+\begin{lstlisting}
+x = Int('x')
+f = Function('x', IntSort(), IntSort())
+
+ForAll(x, f(x) == x, patterns=[f(x)])
+
+y = Int('y')
+Exists(y, x + y == 2)
+\end{lstlisting}
+
+The above two axioms are equivalent to the below in first-order logic syntax:\\
+\begin{center}
+	$\forall x\in \mathbb{Z}$, \lstinline|f(x) = x| \\
+	$\exists y\in \mathbb{Z}$, \lstinline|x + y = 2|
+\end{center}
