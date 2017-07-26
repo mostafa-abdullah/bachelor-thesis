@@ -107,7 +107,7 @@ Z3 provides a convenient way for declaring algebraic data-types (a kind of compo
 
 Before going through an example, it is important to define two constructs in Z3 data-types: Constructors and accessors. With a \textbf{constructor}, different variants of the data-type can be created. Each of these variants may have its own typed attributes. An \textbf{accessor} is a function that can fetch these attributes stored within a data-type instance.
 
-The following example demonstrates declaring and using data-types in Z3. We create a data-type representing a binary tree. The node of this tree may have two variants: Either a leaf with same value attached to it, or an inner node with left and right references two its left and right subtrees respectively.
+The following example demonstrates declaring and using data-types in Z3. We create a data-type representing a binary tree. The node of this tree may have two variants: Either a leaf with some value attached to it, or an inner node with left and right references two its left and right subtrees respectively.
 
 \begin{lstlisting}[language=python]
 Tree = Datatype("Tree")
@@ -171,3 +171,22 @@ The above two axioms are equivalent to the below in first-order logic syntax:\\
 	$\forall x\in \mathbb{Z}$, \lstinline|f(x) = x| \\
 	$\exists y\in \mathbb{Z}$, \lstinline|x + y = 2|
 \end{center}
+
+
+\section{Type System}
+A type system is the set of rules that assign the types to different constructs of the program, such that constructs which have the same type share common behavioral properties. The type system is useful in preventing the occurrences of certain types of errors before or during the program execution.
+
+Each programming language defines the rules for its type system, and the language compilers and/or interpreters are built based on this type system. The process of verifying that the program satisfies the rules enforced by the language's type system is called \textit{type checking}. There are two types of type checking: \textit{static type checking} and \textit{dynamic type checking}. Accordingly, programming languages are divided to \textit{statically-typed} and \textit{dynamically-typed} languages according to the type checking they perform.
+
+\subsection{Static Type and Dynamic Type Checking}
+
+\textbf{Static type checking} is done at compile time. Therefore, the types for every construct in the program must be available before compiling the code. Most statically-typed programming languages, like Java, enforce the programmer to declare the types for every construct. However, there are some languages, like Haskell, that employ type inference to statically deduce the types of the program constructs.
+
+One benefit of static type checking is the early detection of type errors. Therefore, statically-typed languages are generally type-safer than dynamically-typed ones. Also, static typing contributes to the program readability and accordingly its maintainability.\\
+
+On the other hand, \textbf{Dynamic type checking} is performed during runtime, where each object gets assigned to its type during the program execution. Programming languages that perform only dynamic type checking are classified as dynamically-typed languages. One of the advantages of dynamically-typed languages over the statically typed ones is that programs tend to be simpler and more flexible.
+
+
+\subsection{Subtyping}
+Subtyping is a feature which exists in object oriented programming, which allows a form of substitution.
+
