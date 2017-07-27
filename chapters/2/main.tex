@@ -10,9 +10,9 @@ Many attempts have been made to infer types for Python, each of which had its ow
 There are two type inference algorithms primarily used at the time of writing this thesis: Hindley-Milner algorithm and the Cartesian Product algorithm.
 
 \subsubsection{Hindley-Milner}
-% TODO
+// TODO
 \subsubsection{Cartesian Product}
-% TODO
+// TODO
 
 \subsection{Mypy \cite{mypy}}
 Mypy is a static type checker for Python. It depends on defining type annotations for almost all the constructs in the Python program to be checked. In addition, it performs local type inference. However, this type inference cannot be extended beyond local scopes. It requires that function definitions to be fully type-annotated and cannot infer function calls whose return type annotation is not specified. For example, mypy will fail to infer the type of variable \lstinline|x| in the following program:
@@ -30,6 +30,12 @@ What mypy intends to provide is closely related to the goal of our tool, that is
 \subsection{Inferência de tipos em Python \cite{porto}}
 The thesis \cite{porto} describes a static type system defined for a restricted version of RPython, and presents static type inference ideas based on this type system. The work presented in \cite{porto} also describes type inference implementation for Python expressions (like numbers, lists, dictionaries, binary and
 unary operations, etc.), assignment statements and conditional statements. It also gives an idea about inferring polymorphic and non-polymorphic function calls, class definitions and class instantiation. However, the approach they take has a handful of limitations and is not applicable to real Python code. It does not describe inferring function arguments, which is a critical step in the inference of function definitions and function calls. Accordingly, and similar to mypy, the inference they present is not extensible beyond local scopes inference.
+
+\subsection{Starkiller}
+// TODO
+
+\subsection{PyType}
+// TODO
 
 
 \section{SMT Solving with Z3 \cite{z3}}
@@ -52,7 +58,7 @@ It is the building component of Z3 type system. \textbf{Sorts} in Z3 are equival
 \subsubsection{Constant}
 It is a symbol that builds the first-order formula which we are trying to solve with Z3. A Z3 solution to the SMT problem will assign a value to this constant that satisfies the given formula.
 
-Each constant in Z3 has its own type (sort), and the value assigned to it in the SMT solution is of the same sort as this constant. The following example declares two constant, namely \lstinline|x| and \lstinline|y|, of type \lstinline|Int| and queries Z3 for a solution for the given constraints.
+Each constant in Z3 has its own type (sort), and the value assigned to it in the SMT solution is of the same sort as this constant. The following example declares two constant, namely \lstinline|x| and \lstinline|y|, of type \lstinline|Int| and queries Z3 for a solution to the given constraints.
 
 \begin{lstlisting}[language=python]
 x = Int("x")
@@ -80,7 +86,7 @@ Z3 supports most commonly used logical connectives in first-order logic. It supp
 \textbf{Negation}: \lstinline|Not(some_axiom)|\\
 \textbf{Conjunction}: \lstinline|And(one_or_more_axioms)|\\
 \textbf{Disjunction}: \lstinline|Or(one_or_more_axioms)|\\
-\textbf{Implication}: \lstinline|Implies(first_axiom, second_axiom|\\
+\textbf{Implication}: \lstinline|Implies(first_axiom, second_axiom)|\\
 \textbf{Bi-implication}: \lstinline|first_axiom == second_axiom|\\
 
 
@@ -188,5 +194,55 @@ On the other hand, \textbf{Dynamic type checking} is performed during runtime, w
 
 
 \subsection{Subtyping}
-Subtyping is a feature which exists in object oriented programming, which allows a form of substitution.
+Subtyping is a feature which exists in object oriented programming. It allows a form of \textit{substitutability}, that is if a type A is a subtype of a type B, denoted by \lstinline|A <: B|, then any expression if type A can be safely used in any context where a type B is expected. The type system of each programming language defines its own subtyping rules.
 
+For example, in some programming languages, an integer type can be used in any context where a floating-point type is expected. In Java, for instance, \lstinline|int <: float|. Therefore, the following method is valid according to the subtyping rules of the Java type system.
+
+\begin{lstlisting}[language=java]
+float add(float x, float y) {
+	return x + y;
+}
+
+float sum = add(1, 2.5F)
+\end{lstlisting}
+
+Method \lstinline|add| is expecting its two arguments to be of \lstinline|float| type, whereas an \lstinline|int| is passed as its first argument.
+
+
+\subsection{Static Type System for Python 3}
+As mentioned before, our inference tool is based on a static type system that we have defined for Python 3. Since we intend to provide inference for statically-typed Python code, some dynamic features of Python have to be omitted in our type system. Below is a listing of the limitations we imposed on the dynamic nature of Python:
+\begin{enumerate}
+	\item A variable should have a single type in the whole program.
+	\item Dictionaries map a set of keys of the same type to a set of values of the same type.
+	\item Elements in list or a set should have the same type.
+	\item Using reflective or introspective properties of Python is not allowed.
+	\item Modifying global variables using \lstinline|global| keyword is not supported.
+\end{enumerate}
+
+\subsubsection{Syntax}
+We present here the allowed syntax in our type system. Our tool supports all Python 3 syntax for expressions and statements except the following:
+\begin{itemize}
+	\item Starred arguments in function definitions and function calls.
+	\item Keyword arguments in function calls.
+	\item \lstinline|global| keyword.
+\end{itemize}
+
+Following the structure of the built-in Python \lstinline|ast| module, we support the following collection of the Python 3 syntax:
+
+\begin{lstlisting}[xleftmargin=0\textwidth, xrightmargin=0\textwidth]
+stmt = FunctionDef | AsyncFunctionDef | ClassDef | Return | Delete | Assign
+	| AugAssign | AnnAssign | For | AsyncFor | While | If | With | AsyncWith
+	| Raise | Try | Assert | Import | ImportFrom | Expr | Pass | Break | Continue
+
+
+expr = BoolOp | BinOp | UnaryOp | Lambda | IfExp | Dict | Set | ListComp | SetComp
+	| DictComp | GeneratorExp | Await | Yield | YieldFrom | Compare | Call | Num
+	| Str | FormattedValue | JoinedStr | Bytes | NameConstant | Ellipsis | Constant
+	| Attribute | Subscript | Starred | Name | List | Tuple
+
+\end{lstlisting}
+The above listing follows the syntax for the class structure in the \lstinline|ast| module. In order to comprehend the corresponding syntax in Python, one can read the documentation of the module \cite{ast_documentation}.
+
+
+\subsubsection{Rules}
+Following the syntax of type hints introduced in PEP 484 \cite{484}
