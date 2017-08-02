@@ -4,7 +4,7 @@
 \chapter{Background Information}\label{chapter:background}
 
 \section{Related Work}
-Many attempts have been made to infer types for Python, each of which had its own goals and limitations. We discuss here some work that we have studied, and we present some of their limitations and how similar and/or different they are from our tool.
+Many attempts have been made to infer types for Python, each of which had its own goals and limitations. We discuss here some work that we have studied, and we present some of their limitations and their similarities and differences with our tool.
 
 \subsection{Type Inference Algorithms}
 There are two type inference algorithms primarily used at the time of writing this thesis: Hindley-Milner algorithm and the Cartesian Product algorithm.
@@ -31,6 +31,25 @@ What mypy intends to provide is closely related to the goal of our tool, that is
 The thesis \cite{porto} describes a static type system defined for a restricted version of RPython, and presents static type inference ideas based on this type system. The work presented in \cite{porto} also describes type inference implementation for Python expressions (like numbers, lists, dictionaries, binary and
 unary operations, etc.), assignment statements and conditional statements. It also gives an idea about inferring polymorphic and non-polymorphic function calls, class definitions and class instantiation. However, the approach they take has a handful of limitations and is not applicable to real Python code. It does not describe inferring function arguments, which is a critical step in the inference of function definitions and function calls. Accordingly, and similar to mypy, the inference they present is not extensible beyond local scopes inference.
 
+See the following example for illustration:
+
+\begin{lstlisting}[language=Python]
+def add(x, y):
+	return x + y
+\end{lstlisting}
+
+The addition operation in Python can only be applied on numeric type as arithmetic addition or on sequences as sequence concatenation. Therefore, the inferred types for the function arguments \lstinline|x| and \lstinline|y| should be one of the following possibilities:
+\begin{itemize}
+	\item \lstinline|x <: complex|, \lstinline|y <: complex|, \lstinline|x <: y|, \lstinline|return == y|
+	\item \lstinline|x <: complex|, \lstinline|y <: complex|, \lstinline|y <: x|, \lstinline|return == x|
+	\item \lstinline|x <: Seqence|, \lstinline|y <: Sequence|, \lstinline|x <: y|, \lstinline|return == y|
+	\item \lstinline|x <: Seqence|, \lstinline|y <: Sequence|, \lstinline|y <: x|, \lstinline|return == x|
+\end{itemize}
+
+Note that for simplicity, we consider \lstinline|complex| to be a super type of all numeric types in Python. This is not precisely true with respect to the Python type system. However, this is acceptable because all numeric types are type-compatible with \lstinline|complex| types, that is all numeric types can be used whenever \lstinline|complex| is expected.\\
+
+\cite{porto} does not give a way for handling the above constraints. It only states that the function arguments are inferred in a separate context without giving any insights into how the function body would affect the inferred types for the function arguments.
+
 \subsection{Starkiller}
 // TODO
 
@@ -50,15 +69,17 @@ Z3 is now widely used in software analysis and program verification. For instanc
 In our static type inference tool, we depend primarily on Z3 to provide a types model that satisfies all the Python program semantics.
 
 \subsection{Z3 semantics}
-We explain here all the relevant Z3 semantics that we will be using in our tool. For convenience, we will provide the explanation of these semantics in Z3Py, a Python interface for the Z3 solver, since we will be using this interface semantics throughout this thesis. This section targets those who are new to Z3. Those who are already familiar with these Z3 semantics can skip this section.
+We explain here all the relevant Z3 constructs that we will be using in our tool. For convenience, we will provide the explanation of these constructs in Z3Py, a Python interface for the Z3 solver, since we will be using this interface semantics throughout this thesis. This section targets the readers who are new to Z3. Those who are already familiar with Z3 can skip this section.
 
-\subsubsection{Z3 Sort}
-It is the building component of Z3 type system. \textbf{Sorts} in Z3 are equivalent to \textbf{data types} in most programming languages. Examples of a sort in Z3 include \lstinline|Bool|, \lstinline|Int| and \lstinline|Real|.
+\subsubsection{Sorts}
+A sort is the building component of the Z3 type system. \textbf{Sorts} in Z3 are equivalent to \textbf{data types} in most programming languages. Examples of a sort in Z3 include \lstinline|Bool|, \lstinline|Int| and \lstinline|Real|.
 
-\subsubsection{Constant}
-It is a symbol that builds the first-order formula which we are trying to solve with Z3. A Z3 solution to the SMT problem will assign a value to this constant that satisfies the given formula.
+\subsubsection{Constants}
+A constant is the symbol that builds the first-order formula which we are trying to solve with Z3. A Z3 solution to the SMT problem will assign a value to this constant that satisfies the given formula.
 
-Each constant in Z3 has its own type (sort), and the value assigned to it in the SMT solution is of the same sort as this constant. The following example declares two constant, namely \lstinline|x| and \lstinline|y|, of type \lstinline|Int| and queries Z3 for a solution to the given constraints.
+Each constant in Z3 has its own type (sort), and the value assigned to it in the SMT solution is of the same sort as this constant. Constants in Z3 are called \textbf{uninterpreted}, that is they allow any interpretation (may be more than one) which is consistent with the imposed constraints. Which means there is no prior interpretation attached before solving the SMT problem. Therefore, we may use the terms uninterpreted constant and variable interchangeably. \\
+
+The following example declares two constant, namely \lstinline|x| and \lstinline|y|, of type \lstinline|Int| and queries Z3 for a solution to the given constraints.
 
 \begin{lstlisting}[language=python]
 x = Int("x")
@@ -75,10 +96,10 @@ x = Const("x", some_sort)
 y = Const("y", IntSort())
 \end{lstlisting}
 
-\subsubsection{Axiom}
-It is the constraint imposed on problem constants that needs to be satisfied by values assigned to these constants. In the example above, \lstinline|x == 1| and \lstinline|y == x + 1| are two axioms.
+\subsubsection{Axioms}
+An axiom is the constraint imposed on problem constants that needs to be satisfied by values assigned to these constants. In the example above, \lstinline|x == 1| and \lstinline|y == x + 1| are two axioms.
 
-Any Z3 expression that can evaluate to the Z3 \lstinline|Bool| sort can qualify as a Z3 axiom. For instance, \lstinline|x < y + x + 2|, \lstinline|y != 0| and \lstinline|x <= y| are all Z3 axioms.
+Any Z3 expression that can evaluate to the Z3 \lstinline|Bool| sort qualifies as a Z3 axiom. For instance, \lstinline|x < y + x + 2|, \lstinline|y != 0| and \lstinline|x <= y| are all Z3 axioms.
 
 
 \subsubsection{Logical Connectives}
@@ -90,9 +111,9 @@ Z3 supports most commonly used logical connectives in first-order logic. It supp
 \textbf{Bi-implication}: \lstinline|first_axiom == second_axiom|\\
 
 
-\subsubsection{Functions}
+\subsubsection{Uninterpreted Functions}
 Functions are the basic building blocks of the SMT formula. Every constant can be considered as a function which takes no arguments and returns this constant.
-Z3 functions are \textbf{total} that is they are defined for all the domain elements. Moreover, functions (and constants) in Z3 are called \textbf{uninterpreted}, that is they allow any interpretation (may be more than one) which is consistent with the imposed constraints. Which means there is no prior interpretation attached before solving the SMT problem. Therefore, we may use the terms uninterpreted constant and variable interchangeably.
+Z3 functions are \textbf{total} that is they are defined for all the domain elements. Moreover and similar to constants, functions in Z3 are also uninterpreted.
 
 Z3 functions map one or more sort (type) of the domain to a result sort.
 
@@ -122,16 +143,18 @@ Tree.declare("leaf", ("value", IntSort()))
 Tree.declare("inner_node", ("left", Tree), ("right", Tree))
 
 Tree = Tree.create()
+\end{lstlisting}
 
+A constructor is declared for each variant of the tree node. The leaf has an \lstinline|Int| attribute representing the value it carries. The \lstinline|inner_node| constructor has two arguments. Each attribute has its own accessor function.
+
+\begin{lstlisting}
 leaf_constructor = Tree.leaf
-inner_node_constructor = Tree.inner_node
+node_constructor = Tree.inner_node
 
 left_accessor = Tree.left
 right_accessor = Tree.right
 value_accessor = Tree.value
 \end{lstlisting}
-
-A constructor is declared for each variant of the tree node. The leaf has an \lstinline|Int| attribute representing the value it carries. The \lstinline|inner_node| constructor has two arguments. Each attribute has its own accessor function.
 
 Below on the left is an example of encoding the tree on the right using the example above.
 
@@ -143,12 +166,12 @@ leaf_1 = leaf_constructor(10)
 leaf_2 = leaf_constructor(20)
 leaf_3 = leaf_constructor(30)
 
-node_2 = inner_node_constructor(leaf_1, leaf_2)
-node_1 = inner_node_constructor(node_2, leaf_3)
+node_2 = node_constructor(leaf_1, leaf_2)
+node_1 = node_constructor(node_2, leaf_3)
 \end{lstlisting}
 	\end{flushleft}
 \end{minipage}%
-\begin{minipage}[c]{1.1\textwidth}
+\begin{minipage}[c]{0.97\textwidth}
 	\begin{flushright}
 		\Tree[.{node 1} [.{node 2} {leaf 1 (10)} {leaf 2 (20)} ] {leaf 3 (30)} ]
 	\end{flushright}
@@ -156,7 +179,7 @@ node_1 = inner_node_constructor(node_2, leaf_3)
 
 
 \subsubsection{Quantifiers}
-In addition to quantifier-free formulas, Z3 can also solve formulas involving quantifiers. Z3 uses different approaches to solve formulas with quantifiers. The only one which we are concerned with and we will be using in our type inference tool is the \textit{pattern-based quantifier instantiation} approach. This approach works by annotating the quantified formula with some pattern annotations, and these formulas are only instantiated when these patterns are matched during the search context.
+In addition to quantifier-free formulas, Z3 can also solve formulas involving quantifiers. Z3 uses different approaches to solve formulas with quantifiers. The only one which we are concerned with and we will be using in our type inference tool is the \textit{pattern-based quantifier instantiation} approach. This approach works by annotating the quantified formula with some pattern annotations, and these formulas are only instantiated when these patterns are matched during the search for a satisfying model for the formulas.
 
 Z3 supports two kinds of quantifiers: \textit{Universal} and \textit{Existential} quantifiers.
 
@@ -172,7 +195,7 @@ y = Int('y')
 Exists(y, x + y == 2)
 \end{lstlisting}
 
-The above two axioms are equivalent to the below in first-order logic syntax:\\
+The above two axioms are equivalent to the formulas below in first-order logic syntax:\\
 \begin{center}
 	$\forall x\in \mathbb{Z}$, \lstinline|f(x) = x| \\
 	$\exists y\in \mathbb{Z}$, \lstinline|x + y = 2|
@@ -180,7 +203,7 @@ The above two axioms are equivalent to the below in first-order logic syntax:\\
 
 
 \section{Type System}
-A type system is the set of rules that assign the types to different constructs of the program, such that constructs which have the same type share common behavioral properties. The type system is useful in preventing the occurrences of certain types of errors before or during the program execution.
+A type system is a set of rules that assign types to different constructs of the program, such that constructs which have the same type share common behavioral properties. Type systems are useful in preventing the occurrences of certain types of errors before or during the program execution.
 
 Each programming language defines the rules for its type system, and the language compilers and/or interpreters are built based on this type system. The process of verifying that the program satisfies the rules enforced by the language's type system is called \textit{type checking}. There are two types of type checking: \textit{static type checking} and \textit{dynamic type checking}. Accordingly, programming languages are divided to \textit{statically-typed} and \textit{dynamically-typed} languages according to the type checking they perform.
 
@@ -188,15 +211,15 @@ Each programming language defines the rules for its type system, and the languag
 
 \textbf{Static type checking} is done at compile time. Therefore, the types for every construct in the program must be available before compiling the code. Most statically-typed programming languages, like Java, enforce the programmer to declare the types for every construct. However, there are some languages, like Haskell, that employ type inference to statically deduce the types of the program constructs.
 
-One benefit of static type checking is the early detection of type errors. Therefore, statically-typed languages are generally type-safer than dynamically-typed ones. Also, static typing contributes to the program readability and accordingly its maintainability.\\
+One benefit of static type checking is the early detection of type errors. Therefore, statically-typed languages are generally type-safer than dynamically-typed ones. Also, static typing contributes to the program readability and, as consequence, to its maintainability.\\
 
-On the other hand, \textbf{Dynamic type checking} is performed during runtime, where each object gets assigned to its type during the program execution. Programming languages that perform only dynamic type checking are classified as dynamically-typed languages. One of the advantages of dynamically-typed languages over the statically typed ones is that programs tend to be simpler and more flexible.
+On the other hand, \textbf{dynamic type checking} is performed during runtime, where each object gets assigned to its type during the program execution. Programming languages that perform only dynamic type checking are classified as dynamically-typed languages. One of the advantages of dynamically-typed languages over the statically typed ones is that programs tend to be simpler and more flexible.
 
 
 \subsection{Subtyping}
-Subtyping is a feature which exists in object oriented programming. It allows a form of \textit{substitutability}, that is if a type A is a subtype of a type B, denoted by \lstinline|A <: B|, then any expression if type A can be safely used in any context where a type B is expected. The type system of each programming language defines its own subtyping rules.
+Subtyping is a feature which exists in most programming paradigms. It allows a form of \textit{substitutability}, that is if a type A is a subtype of a type B, denoted by \lstinline|A <: B|, then any expression if type A can be safely used in any context where a type B is expected. The type system of each programming language defines its own subtyping rules.
 
-For example, in some programming languages, an integer type can be used in any context where a floating-point type is expected. In Java, for instance, \lstinline|int <: float|. Therefore, the following method is valid according to the subtyping rules of the Java type system.
+For example, in some programming languages, (e.g., Java), \lstinline|int <: float|, so an integer type can be used in any context where a floating-point type is expected. Therefore, the following Java method is valid according to the subtyping rules of the Java type system.
 
 \begin{lstlisting}[language=java]
 float add(float x, float y) {
@@ -230,15 +253,17 @@ We present here the allowed syntax in our type system. Our tool supports all Pyt
 Following the structure of the built-in Python \lstinline|ast| module, we support the following collection of the Python 3 syntax:
 
 \begin{lstlisting}[xleftmargin=0\textwidth, xrightmargin=0\textwidth]
-stmt = FunctionDef | AsyncFunctionDef | ClassDef | Return | Delete | Assign
-	| AugAssign | AnnAssign | For | AsyncFor | While | If | With | AsyncWith
-	| Raise | Try | Assert | Import | ImportFrom | Expr | Pass | Break | Continue
+stmt = FunctionDef | AsyncFunctionDef | ClassDef | Return | Delete
+	| Assign | AugAssign | AnnAssign | For | AsyncFor | While | If
+	| With | AsyncWith | Raise | Try | Assert | Import | ImportFrom
+	| Expr | Pass | Break | Continue
 
 
-expr = BoolOp | BinOp | UnaryOp | Lambda | IfExp | Dict | Set | ListComp | SetComp
-	| DictComp | GeneratorExp | Await | Yield | YieldFrom | Compare | Call | Num
-	| Str | FormattedValue | JoinedStr | Bytes | NameConstant | Ellipsis | Constant
-	| Attribute | Subscript | Starred | Name | List | Tuple
+expr = BoolOp | BinOp | UnaryOp | Lambda | IfExp | Dict | Set | ListComp
+	| SetComp | DictComp | GeneratorExp | Await | Yield | YieldFrom
+	| Compare | Call | Num | Str | FormattedValue | JoinedStr | Bytes
+	| NameConstant | Ellipsis | Constant | Attribute | Subscript
+	| Starred | Name | List | Tuple
 
 \end{lstlisting}
 The above listing follows the syntax for the class structure in the \lstinline|ast| module. In order to comprehend the corresponding syntax in Python, one can read the documentation of the module \cite{ast_documentation}.

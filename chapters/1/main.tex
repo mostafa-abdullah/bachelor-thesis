@@ -16,19 +16,19 @@ num = num + "2"
 
 
 
-The intention of the above program was to add the number \lstinline|2| to the variable \lstinline|num|, not the \lstinline|string| representation of this number. This tiny mistake goes unnoticed at compile time, and leads the program to raise an exception during runtime.\\
+The intention of the above program was to add the number \lstinline|2| to the variable \lstinline|num|, not the \lstinline|string| representation of this number. This small mistake goes unnoticed at compile time, and leads the program to raise an exception during runtime.\\
 
-In this thesis, we are presenting a tool for static type inference and static type checking for a subset of Python 3. The aim of the tool is to gain the benefits of static typing while maintaining some (yet not all) dynamic features of Python. We discuss later the details of the dynamic limitations imposed on the inferable Python programs.\\
+In this thesis, we are presenting a tool for static type inference and static type checking for a subset of Python 3. The aim of the tool is to gain the benefits of static typing while maintaining some (yet not all) dynamic features of Python. We discuss later the details of the dynamic limitations imposed on the supported Python programs.\\
 
 The type inference is based on a nominal static type system that we define in the next chapter. The type inference is intended to be integrated into Lyra and VerifySCION, two ongoing projects at the Chair of Programming Methodology at ETH Zurich, which aim to develop a static analyzer and a program verifier for Python programs.
 
-We present a new approach for tackling the type inference problem, solely based Satisfiability Modulo Theories (SMT) solving. We also augment the SMT solver with several enhancements to account for the dynamic nature for Python. We will go through the approach details and the SMT encoding in later chapters.\\
+We present a new approach for tackling the type inference problem, solely based Satisfiability Modulo Theories (SMT) solving. Each sentence and expression in the program impose one or more new constraints, then the SMT solver is queried for a satisfying solution to these constraints. We also augment the SMT solver with several enhancements to account for the dynamic nature for Python. We will go through the approach details and the SMT encoding in later chapters.\\
 
-This thesis describes the design and the implementation of the static type inference for Python 3, using Z3 SMT solver. It is divided into seven chapters. The second chapter presents the background information that will help the reader comprehend the rest of the thesis. It reviews the already existing type inference algorithms and the past work done in this area, explains the syntax and the type system rules of the subset of Python 3 that our tool supports and explains the SMT concepts that we will be using throughout the thesis.
+This thesis describes the design and the implementation of the static type inference for Python 3, using the Z3 SMT solver. It is divided into seven chapters. The second chapter presents the background information that will help the reader comprehend the rest of the thesis. It reviews the already existing type inference algorithms and the past work done in this area, explains the syntax and the type system rules of the subset of Python 3 that our tool supports and explains the SMT concepts that we will be using throughout the thesis.
 
-In the third chapter, we introduce the encoding of the type system that we support in the SMT solver. We also state and justify the limitations of this type system.
+In the third chapter, we introduce the MT encoding of the type system that we support. We also state and justify the limitations of this type system.
 
-In the forth chapter, we describe the design and the implementation of the type inference algorithm in depth. We explain the components of the tool and all the SMT axioms for all the language constructs that we support.
+In the forth chapter, we describe the design and the implementation of the type inference algorithm in depth. We explain the components of the tool and all the SMT constraints for all the language constructs that we support.
 
 The fifth chapter explains the experiments we have done to test the tool. We also highlight the current limitations of the type inference and problems it faces with certain types of programs.
 
