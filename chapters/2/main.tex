@@ -162,27 +162,24 @@ right_accessor = Tree.right
 value_accessor = Tree.value
 \end{lstlisting}
 
-Below on the left is an example of encoding the tree on the right using the example above.
+Below is an example of encoding the tree in figure \ref{fig:tree_z3} using the tree data-type declared above:
 
-
-\begin{minipage}[c]{0\textwidth}
-	\begin{flushleft}
-\begin{lstlisting}[language=python]
-leaf_1 = leaf_constructor(10)
-leaf_2 = leaf_constructor(20)
-leaf_3 = leaf_constructor(30)
-
-node_2 = node_constructor(leaf_1, leaf_2)
-node_1 = node_constructor(node_2, leaf_3)
-\end{lstlisting}
-	\end{flushleft}
-\end{minipage}%
-\begin{minipage}[c]{0.97\textwidth}
-	\begin{flushright}
-		\Tree[.{node 1} [.{node 2} {leaf 1 (10)} {leaf 2 (20)} ] {leaf 3 (30)} ]
-	\end{flushright}
-\end{minipage}
-
+\begin{figure}[H]
+	\begin{lstlisting}[language=python, xleftmargin=.2\textwidth, xrightmargin=.2\textwidth]
+	leaf_1 = leaf_constructor(10)
+	leaf_2 = leaf_constructor(20)
+	leaf_3 = leaf_constructor(30)
+	
+	node_2 = node_constructor(leaf_1, leaf_2)
+	node_1 = node_constructor(node_2, leaf_3)
+	\end{lstlisting}
+	
+	\begin{mdframed}
+	\Tree[.{node 1} [.{node 2} {leaf 1 (10)} {leaf 2 (20)} ] {leaf 3 (30)} ]
+	\end{mdframed}
+	\caption{Tree Encoding with Z3 data-types}
+	\label{fig:tree_z3}
+\end{figure}
 
 \subsubsection{Quantifiers}
 In addition to quantifier-free formulas, Z3 can also solve formulas involving quantifiers. Z3 uses different approaches to solve formulas with quantifiers. The only one which we are concerned with and we will be using in our type inference tool is the \textit{pattern-based quantifier instantiation} approach. This approach works by annotating the quantified formula with some pattern annotations, and these formulas are only instantiated when these patterns are syntactically matched during the search for a satisfying model for the formulas.
@@ -223,7 +220,7 @@ In a \textbf{nominal type system}, equivalence of types comes from an explicit d
 In a \textbf{structural type system}, equivalence of types comes from the structure of the types, such that a type \lstinline|a| is equivalent to another type \lstinline|b| if for every property in \lstinline|a|, there exists and identical property in \lstinline|b|. OCaml, for example, uses a structural type system. \\
 
 A pseudo-code example to illustrate the difference between both type systems is given below:
-\begin{lstlisting}
+\begin{lstlisting}[language=java]
 class A {f() {return 1}}
 class B {f() {return 1}}
 
@@ -296,7 +293,7 @@ We present here the allowed syntax in our type system. Our tool supports all Pyt
 
 Following the structure of the built-in Python \lstinline|ast| module, we support the following collection of the Python 3 syntax:
 
-\begin{lstlisting}[xleftmargin=0\textwidth, xrightmargin=0\textwidth]
+\begin{lstlisting}[language=,xleftmargin=0\textwidth, xrightmargin=0\textwidth]
 stmt = FunctionDef | AsyncFunctionDef | ClassDef | Return | Delete
 	| Assign | AugAssign | AnnAssign | For | AsyncFor | While | If
 	| With | AsyncWith | Raise | Try | Assert | Import | ImportFrom
@@ -316,7 +313,7 @@ The above listing follows the syntax for the class structure in the \lstinline|a
 \subsubsection{Rules}
 Following the syntax of type hints introduced in PEP 484 \cite{484}, below is a listing of the types that we currently support:
 
-\begin{lstlisting}[xleftmargin=0\textwidth, xrightmargin=0\textwidth, mathescape]
+\begin{lstlisting}[language=,xleftmargin=0\textwidth, xrightmargin=0\textwidth, mathescape]
 t = None | object | bool | int | float | complex | string | bytes
 	| Tuple[t*] | List[t] | Set[t] | Dict[t$_{1}$, t$_{2}$] | Callable[[t*], t]
 	| Type[t] | T
@@ -325,21 +322,21 @@ t = None | object | bool | int | float | complex | string | bytes
 
 Where \lstinline|t*| represents a collection of types of arbitrary length and \lstinline|T| represents an instance of a user-defined type.
 
-Note that most other built-in types belong to user-defined types domain, since they are inferred as normal user-defined classes from our stub files.\\
+Note that most other built-in types belong to user-defined types domain, since they are inferred as normal user-defined classes from our stub files. Stub files contain functions and classes that simulate built-in functionalities. \\
 
 The subtype relationships between the above types are defined by the following rules:
 
-\begin{lstlisting}[xleftmargin=0\textwidth, xrightmargin=0\textwidth, mathescape]
+\begin{lstlisting}[language=,xleftmargin=0\textwidth, xrightmargin=0\textwidth, mathescape]
 bool <: int
 int <: float
 float <: complex
 complex <: string
 t$_{i}$ <: t$^{`}_{i}$ : 1 <= i <= n $\rightarrow{}$ Tuple[t$_{1}$, .., t$_{n}$] <: Tuple[t$^{`}_{1}$, .., t$^{`}_{n}$]
 
-t <: t$^{`}$ ^ t$^{`}_{i}$ <: t$_{i}$ : 1 <= i <= n $\rightarrow{}$
+t <: t$^{`}$ $\land$ t$^{`}_{i}$ <: t$_{i}$ : 1 <= i <= n $\rightarrow{}$
 	Callable[[t$_{1}$, .., t$_{n}$], t] <: Callable[[t$^{`}_{1}$, .., t$^{`}_{n}$], t$^{`}$]
 	
-T <: U iff extends(T, U)
+T <: U iff extends(T, U) $\lor$ $\exists$V: extends(T, V) $\land$ V <: U 
 	where extends(a, b) is True if class a explicitly extends class b,
 	and false otherwise
 	
@@ -354,6 +351,6 @@ It is worth mentioning that the subtype relationship is both reflexive and trans
 \begin{center}
 	$\forall x$ \lstinline|subtype(x, x)| \\
 	$\forall x,y,z$ \lstinline|subtype(x, y)| $\land$ \lstinline|subtype(y,z)| $\rightarrow$ \lstinline|subtype(x,z)|
-\end{center}\\
+\end{center}
 
-In the next chapter, we will explain the encoding of all the above rules in Z3.
+Although the above rules do not cover the whole Python type system, they are sufficient for most statically-typed Python programs. It remains to explain how we will build the type inference upon the above rules. In the next chapter, we will explain the encoding of all the above rules in Z3.

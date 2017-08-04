@@ -20,6 +20,12 @@
 \usepackage{caption}
 \usepackage[hidelinks]{hyperref} % hidelinks removes colored boxes around references and links
 \usepackage{qtree}
+\usepackage{float}
+\usepackage{mdframed}
+
+\usepackage{pgf}
+\usepackage{tikz}
+\usetikzlibrary{arrows,automata}
 
 \bibliography{bibliography}
 
@@ -56,10 +62,13 @@
 % Settings for lstlistings
 \lstset{%
   basicstyle=\ttfamily,
+  breaklines=true,
+  postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
   columns=fullflexible,
   autogobble,
   keywordstyle=\bfseries\color{TUMBlue},
   stringstyle=\color{DarkGreen},
-  xleftmargin=.2\textwidth, xrightmargin=.2\textwidth
+  xleftmargin=.1\textwidth, xrightmargin=.0\textwidth,
+  language=python
 }
 
