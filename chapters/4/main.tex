@@ -177,7 +177,7 @@ As discussed earlier, the elements of a single list or a set have to be homogene
 
 So the elements type of a list (or a set) literal is the super type of all the list element.
 
-Assuming a function \lstinline|infer| which takes the AST node of the expression and returns its inferred type, see the following example:
+Assuming a function \lstinline|infer| which takes the AST node of the expression and returns its inferred type, the inference of list literals is implemented as follows:
 
 \begin{lstlisting}
 def infer(node):
@@ -245,7 +245,7 @@ The listing below shows examples for the addition operation and their inferred t
 \textbf{Multiplication (*)}
 Multiplication in Python, also without considering operator overloading, is either numeric multiplication or sequence repetition.
 
-Similar to addition, the result type of numeric multiplication is the super type of the types of the operands. In case of sequence repetition, one of the operands must be a subtype of \lstinline|int| and the other one should be the sequence. In all the sequences except tuples, the result type is the same as the sequence being multiplied. Ideally in case of tuples, the result is a tuple type with the argument types of the operand tuple repeated by the operand number. However, resolving the exact numeric value is impossible statically. Therefore, we consider the result of tuple multiplication to be the same type as the operand tuple. This is sound because no new types are introduced in the tuple arguments after multiplication, and as we will see shortly, any operation on tuple (e.g., indexing) does not care about the order of the types of the tuple elements.\\
+Similar to addition, the result type of numeric multiplication is the super type of the types of the operands. In case of sequence repetition, one of the operands must be a subtype of \lstinline|int| and the other one should be the sequence. In all the sequences except tuples, the result type is the same as the sequence being multiplied. Ideally in case of tuples, the result is a tuple type with the argument types of the operand tuple repeated by the operand number. However, resolving the exact numeric value is impossible statically. Therefore, we consider the result of tuple multiplication to be the same type as the operand tuple. This is sound because no new types are introduced in the tuple arguments after multiplication, and as we will see shortly, any operation on tuple (e.g., indexing) does not care about the order of the types of the tuple elements. So the two tuple types \lstinline|Tuple[int, str]| and \lstinline|Tuple[int, str, int, str]| give the same output after applying any operation on the tuple.\\
 
 An important thing to notice in both addition and multiplication is that applying these operations on two \lstinline|bool| types results in an \lstinline|int| type. So this needs special handling during the axioms generation..
 
@@ -253,6 +253,7 @@ An important thing to notice in both addition and multiplication is that applyin
 3 * 4.0  # float
 [1, 2, 3] * 3  # List[int]
 (1, 2) * 2  # Tuple[int, int]
+True * False  # int
 [1, 2] * 3.0  # invalid
 \end{lstlisting}
 
@@ -280,6 +281,132 @@ There is a single special case to consider in the modulo operator (\%). In addit
 \textbf{Bitwise Binary Operations (\&, \textrm{\^}, |, <<, >>)}
 Bitwise operations can only be applied on subtypes of \lstinline|int| types (\lstinline|int| and \lstinline|bool|). The result is \lstinline|int| in all cases except when we apply \&, \textrm{\^} or | on two \lstinline|bool| types, where in such case the result is \lstinline|bool|.
 
+\subsubsection{Unary Operations}
+Unary operations are the operations which are only applied on only one expression, called operand and gives a result expression. The supported unary operations in Python are unary \lstinline|-| (minus), unary \lstinline|+| (plus), unary \lstinline|~| invert, and \lstinline|not|.\\
+
+For the plus and minus unary operations, the operand must be a subtype of \lstinline|complex|, and the result is \lstinline|int| if the type of the operand is \lstinline|bool|, otherwise it is the same type as the operand. As for the unary invert, the operand must be a subtype of \lstinline|int|, and the result is always of type \lstinline|int|.
+
+The \lstinline|not| operation can by applied on any object and result in a \lstinline|bool| type.
+
+
+\subsubsection{Boolean Operations}
+There are two boolean operators in Python: \lstinline|and| and \lstinline|or|.
+
+Before explaining the inference for these operations, it is important to understand what a \textit{truth value} of an object is.
+
+In Python, every object can be tested for truth value, where each object can evaluate to \lstinline|True| or \lstinline|False| when used as test condition in \lstinline|if| or \lstinline|while| statements or in a boolean operation. The following values have a \lstinline|False| truth value:
+\begin{itemize}
+	\item \lstinline|None|
+	\item \lstinline|False|
+	\item Zero numeric value: 0, 0.0, 0j
+	\item Any object which has \lstinline|__len__| method which returns a zero.
+\end{itemize}
+Any other object has a \lstinline|True| truth value. \\
+
+The result type from a boolean operation is not simple to infer, since it totally depends on the values that the operands carry during runtime, and these values are impossible to be statically resolved. Specifically, the \lstinline|and| operator keeps evaluating the operands until an operand with a \lstinline|False| truth value is encountered. \lstinline|or| operator does the opposite. See the following example for illustration:
+\begin{lstlisting}
+a = function_which_returns_int()
+b = function_which_returns_string()
+
+x = a and b
+y = a or b
+\end{lstlisting}
+
+If \lstinline|a| has a zero value during runtime, then the type of \lstinline|x| will be the same as \lstinline|a|, which is \lstinline|int|, otherwise it will be \lstinline|str|. Conversely, \lstinline|y| will have type \lstinline|str| if \lstinline|a| has a zero value, otherwise it will have an \lstinline|int| type.
+
+As mentioned, the values of \lstinline|a| and \lstinline|b| are impossible to be statically resolved. Therefore, the type of the result from a boolean operation is inferred to be the common super type between its operands.
+
+So the result from \lstinline|1 and 2.0| is \lstinline|float| and from \lstinline|1 and "str"| is \lstinline|object|.
+
+\subsubsection{If (Conditional) Expression}
+With an if expression, conditional statements can be written as one statement which returns a value depending on whether a certain condition is true or false.
+\begin{lstlisting}
+x = A if some_condition else B
+\end{lstlisting}
+This does the exact same thing as the following:
+\begin{lstlisting}
+if some_condition:
+	x = A
+else:
+	x = B
+\end{lstlisting}
+
+The inferred type for the if expression value is the common super type of the types of the true (A) and the false (B) values.
+
+\subsubsection{Subscripts}
+Subscript literals in Python are any literals which end in square brackets containing some expression. For example, all the following are subscript literals:
+\begin{lstlisting}
+x[a]
+x[a:b]
+x[f()]
+\end{lstlisting}
+
+There are two kinds of subscripts in Python: \textit{indexed} subscript and \textit{sliced} subscript. A sliced subscript is that which contains one or two colons \lstinline|:|. Any other subscript is an indexed subscript. \\
+
+In python, any type which contains \lstinline|__getitem__| method can be indexed or sliced. However for simplicity, we only consider built-in types here. We explain later in this chapter how we enhance the type inference to account for user-defined classes which implement the \lstinline|__getitem__| method. \\
+
+In our type system, only strings (and byte strings), lists, dictionaries and tuples support \textbf{indexing}:
+
+\begin{itemize}
+	\item For strings, the index must be a subtype of \lstinline|int| and the result is a \lstinline|str|.
+	\item For lists, the index is a subtype of \lstinline|int| and the result is the type of the list elements.
+	\item For tuples, the index must be a subtype of \lstinline|int|, and the result is the common super type between all the tuple elements. This is because it is not possible to statically resolve the value of the index, so we cannot know which element the indexing is referring to. For this reason, the order (or the repetition) of the types of the tuple elements does not matter in indexing. For example, indexing both tuples of types \lstinline|Tuple[int, float]| and \lstinline|Tuple[int, float, int]| will give the same result type, \lstinline|float|.
+	\item For dictionaries, the index type should be the same as the inferred type of the dictionary keys, and the result type is the type of the dictionary values.
+\end{itemize}
+
+As for \textbf{sliced} subscripts, only strings, lists and tuples support slicing. The slicing one or more keys must be a subtype of \lstinline|int|. The result type from slicing is the same as the sliced object. For the same reason stated above, slicing the tuple results in the same tuple type because resolving the slicing ends is impossible statically. This is also sound because any operation applied on the result from slicing a tuple should be compatible with every element type in the original tuple.
+
+\subsubsection{Comprehensions}
+Comprehensions are constructs which enable the programmer to create lists, sets or dictionaries in a natural and elegant way from any other iterable object.
+
+The following set comprehension creates a set \lstinline|x| which contains the square of all values in another iterable \lstinline|y|.
+
+\begin{lstlisting}
+x = {i * i for i in y}
+\end{lstlisting}
+
+This is equivalent to the following in a mathematical syntax:
+\begin{lstlisting}[language=, mathescape]
+x = {i * i | i $\in$ y}
+\end{lstlisting}
+
+The expression \lstinline|i in y| in the above example is called a \textit{generator expression} while the expression \lstinline|i * i| is called the comprehension element.
+
+The inference for comprehensions works by creating a local context for the generator, and inferring the generator target (\lstinline|i| in the example above) in this local context according to the generator iterable (\lstinline|y|). Then by having the target inferred in the local context, the type of the comprehension element can be inferred by applying the expressions inference rules on it.
+
+For the example above, assuming the type of \lstinline|y| is inferred to be \lstinline|List[int]|, then the type of \lstinline|i| is inferred as \lstinline|int| in the local context of the generator expression. Then the type of the set elements is inferred from the multiplication inference rules explained above: \lstinline|int * int := int|. So the comprehension result will have a result of \lstinline|Set[int]|. \\
+
+Moreover, the generator expressions can be chained (nested). See the following example for illustration:
+
+\begin{lstlisting}
+x = [[1, 2, 3],
+     [4, 5, 6],
+     [7, 8, 9]]
+	 
+y = [i for j in x for i in j]
+\end{lstlisting}
+
+The array \lstinline|y| contains the array \lstinline|x| after flattening all its inner arrays (\lstinline|[1, 2, 3, 4, 5, 6, 7, 8, 9]|). The inference for chained generators works by inferring the generator targets in the order they appear in the comprehension. So the type of \lstinline|j| in the above example is inferred to be \lstinline|List[int]| (because \lstinline|x| is \lstinline|List[List[int]]|), and the type of the second generator target \lstinline|i| (which is also the comprehension element) is inferred to be \lstinline|int|, and the type of y is then \lstinline|List[int]|.
+
+In addition to generators chaining, the comprehension itself can be nested.
+\begin{lstlisting}
+x = [[1, 2, 3],
+     [4, 5, 6],
+     [7, 8, 9]]
+	 
+y = [[i * 2 for i in j] for j in x]	 
+\end{lstlisting}
+
+The variable \lstinline|y| is now a 2D array with the same dimensions as x, where each element in \lstinline|y| is the double of the corresponding one in \lstinline|x|.
+
+The inference for comprehensions nesting works exactly the same as normal comprehensions: The comprehension \lstinline|[[i * 2 for i in j]]| is treated at first as the larger comprehension element, and \lstinline|j| is inferred to be \lstinline|List[int]|. Now having the type of \lstinline|j| in the local context of the comprehension, the type of the inner comprehension can be inferred with the same rule. Therefore, the inner comprehension will have the type \lstinline|List[int]| and the outer one will have the type \lstinline|List[List[int]]|, which is the type of \lstinline|y|.\\
+
+The inference for dictionary comprehension works the same way as lists and sets. The only difference is that the comprehension element is composed of mapping instead of a single expression. The following example creates a dictionary comprehension which maps a every value in a list to its square.
+\begin{lstlisting}
+{a: a * a for a in [1, 2, 3]}
+\end{lstlisting}
+
+After inferring the types in the generator expressions, the types for the dictionary keys and the values in the the comprehension element are inferred in the local context of the generators.
 \subsection{Statements Axioms}
 \subsection{Function Definitions Inference}
 \subsection{Class Definitions Inference}
