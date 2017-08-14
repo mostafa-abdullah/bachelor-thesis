@@ -281,6 +281,7 @@ As mentioned before, our inference tool is based on a static type system that we
 	\item It is not possible to dynamically create and infer modules during runtime.
 	\item \lstinline|exec| and \lstinline|eval| commands are not supported.
 	\item Inheriting from built-in types is not supported.
+	\item It is not possible to define new function decorators, and using built-in decorators is currently limited to \lstinline|@staticmethod| and \lstinline|@abstractmethod| decorators.
 \end{enumerate}
 
 \subsubsection{Syntax}

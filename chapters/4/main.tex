@@ -26,7 +26,7 @@ f()
 \end{figure}
 
 Our type inference works by traversing the AST in a depth-first manner, and gathering constraints along the way.
-\subsection{Pre-analysis}
+\subsection{Pre-analysis}\label{pre}
 Before we attempt to infer the types of the input Python program, some pre-analysis is needed to prepare the configurations of the type inference.
 
 The pre-analyzer takes the AST of the input program and provides the following information:
@@ -571,7 +571,7 @@ print(x)  # Invalid: x might have been deleted.
 \end{lstlisting}
 
 The second variant of deletion is \textbf{subscript deletion}. Every "subscriptable" object can be used in subscript deletion except immutable objects. So an axiom is generated when a subscript deletion is encountered that the subscripted object is mutable.
-\subsection{Function Definitions Inference}
+\subsection{Function Definitions Inference}\label{func}
 The inference for function definitions is the main motivation behind adopting SMT solving to the solve the type inference problem. The type for every variable that is created through an assignment statement can be easily resolved by tracking the type of the value it is assigned to. However for function arguments, there is no origin for the type to track. The type of these arguments is solely based on how these arguments are used in the function body and how this function is called; hence the idea of constraints solving evolved.\\
 
 As stated earlier, a local context for the function is created. Each argument in the function is mapped to a newly created Z3 constant in this local context, where this fresh constant is totally free from any constraints. Then the function body is inferred by the statements inference rules which we have just explained. These rules impose constraints on the types of the function arguments. The return type of the function is the inferred type of the body block of the function. If a function has no \lstinline|return| statement, then the return type is inferred to be \lstinline|None|. At the end of the inference, Z3 will assign types to the constants corresponding to the types of the arguments which satisfy all the imposed constraints. Let us illustrate the functions inference with the following example:
@@ -673,6 +673,220 @@ Now the function \lstinline|add| can accept any type which is indicated in the p
 
 However, introducing generic type variables comes with its limitations. The function which contains a generic type variable is handled apart from Z3. Accordingly, no Z3 constant is created for any function that contains a generic type variable, and any function that contains one must by fully type-annotated (i.e., there must be a type annotation for every argument and the return of the function). Also as a consequence of not treating these functions with Z3, they cannot be used as a first class object, that is they cannot be passed as function arguments. The only supported way to use functions with generic type variables is direct function calls.
 \subsection{Class Definitions Inference}
+Classes provide a way for creating new types in Python. Each instance of any class has a set of attributes attached to it, which identify its state, behavior and properties. We explain here how the type inference for defining new classes works. \\
+
+\subsubsection{Pre-analysis}
+As mentioned in \ref{pre}, the pre-analyzer provides the following information about class definitions prior to running the type inference algorithm:
+
+\begin{itemize}
+	\item A mapping from classes to methods.
+	\item A mapping from classes to instance-level data attributes.
+	\item A mapping from classes to class-level attributes.
+	\item A mapping from classes to their base classes, or to \lstinline|object| if they do not have any.
+\end{itemize}
+
+Then as described in chapter \ref{chapter:ts}, all the user-defined classes are encoded in the \textit{type sort} data-type, and Z3 uninterpreted constants are created for every method and data attribute which will represent their corresponding types in the generated model, and each class is mapped the Z3 constants representing its own attributes.
+
+\subsubsection{Attributes and Methods Inference}
+When a class definition statement is encountered, a local context is created for this class. Then the statements inside the class (its methods and attributes declarations) are also traversed with depth-first manner starting from the class node itself. The type of each statement is then inferred according to the inference rules described for expressions, statements and functions. After the inference for the class contents is done, the types added to the local context of the class are unified with the corresponding Z3 constants which the class is mapped to, which represent the types of the class attributes. Let us discuss the following example for illustration:
+
+\begin{lstlisting}
+class A:
+	x = 1
+	def __init__(self):
+		self.a = 1
+	def get_a(self):
+		return self.a
+\end{lstlisting}
+
+The pre-analyzer gives the following mappings:
+\begin{lstlisting}
+class_level_attrs = {
+	'A': ['x', '__init__', 'get_a']
+}
+instance_level_attrs = {
+	'A': ['x', 'a', '__init__', 'get_a']
+}
+methods = {
+	'A': ['__init__', 'get_a']
+}
+
+bases = {
+	'A': ['object']
+}
+\end{lstlisting}
+
+And the mapping from the class to the Z3 constants is also created:
+\begin{lstlisting}
+z3_consts = {
+	'A': {
+		'x': attr_x_z3_const,
+		'__init__': attr_init_z3_const,
+		'get_a': attr_get_a_z3_const,
+		'a': attr_a_z3_const
+	}
+}
+\end{lstlisting}
+
+It is worth mentioning that the first argument in any instance methods (handling static methods is discussed shortly), called the method receiver, is always automatically inferred to have the type of class itself. So \lstinline|self| in the above examples will have the type \lstinline|A|. \\
+
+At the beginning, the local context of the class is empty. Then the class contents is traversed and the inference works as described before. After the statement \lstinline|x = 1| is encountered, attribute \lstinline|x| is inferred to be of type \lstinline|int|. Similarly, the methods \lstinline|__init__| and \lstinline|get_a| are inferred as described in \ref{func}. In the function \lstinline|__init__|, we infer the type of the instance-level data attribute \lstinline|self.a| to be of type \lstinline|int|. We will see in the attribute access inference how this type is attached to the attribute. The types of the methods \lstinline|__init__| and \lstinline|get_a| are inferred as described in \ref{func}. So in the end, the local context of the class \lstinline|A| looks as follows:
+\begin{lstlisting}
+context = {
+	'x': int,
+	'__init__': init_z3_constant,
+	'get_a': get_a_z3_consant
+}
+\end{lstlisting}
+
+Then at the end of the class inference, the following unification axioms are added to the SMT problem to define the types of the class attributes:
+
+\begin{lstlisting}
+context['x'] == z3_consts['A']['x']
+context['__init__'] == z3_consts['A']['__init__']
+context['get_a'] == z3_consts['A']['get_a']
+\end{lstlisting}
+
+Note that the type of the attribute \lstinline|self.a| is not included in this unification. The inference for such kind of attributes is discussed later in the attribute access inference.
+
+\subsubsection{Method Decorators}
+Decorators provide a mechanism to dynamically alter the functionality of a function. Decorators in general are not supported in our type inference, since they may dynamically alter type-related functionalities of the functions. The currently supported decorators are only \lstinline|@staticmethod| and \lstinline|@abstractmethod| decorators. \\
+
+The inference for methods decorated with \lstinline|@staticmethod| work the same way as instance methods, except that the first argument is not unified with the class instance. Also, static methods can only be invoked on class types; they cannot be called on class instances. The reason for such restriction is to provide more type flexibility and lift variance restrictions which are imposed on the inherited methods. The variance restrictions are to be discussed shortly. The inference of calling static methods will be explained when we get to method calls inference. \\
+
+As for \lstinline|@abstractmethods|, the body type of the method is ignored, and any subclass is enforced to override any abstract method that appears in any of its super classes.
+
+\subsubsection{Inheritance}
+Every class definition can define zero or more classes to extend. Extending a class is explicitly defining a \textit{subtype} relationship between the extending and the extending classes. All the methods which exist in the super classes and are not implemented in the subclass are inherited by this subclass.
+\begin{lstlisting}
+class A:
+	def f(self):
+		pass
+
+class B(A):
+	pass
+	
+B().f()
+\end{lstlisting}
+
+Class \lstinline|B| extends class \lstinline|A| and does not implement the method \lstinline|f|, so the method \lstinline|f| is inherited by \lstinline|B| from \lstinline|A|. However, things get confusing in the presence of multiple inheritance. See the following example:
+
+\begin{lstlisting}
+class A:
+	def f(self):
+		return 1
+
+class B:
+	def f(self):
+		return "str"
+		
+class C(A, B):
+	pass
+	
+x = C().f()  # What is the value (and type) of `x`?
+\end{lstlisting}
+
+Now determining which \lstinline|f| function is being called is not trivial as in the case of single inheritance. This is where defining the method resolution order (MRO) becomes crucial. MRO is the order in which methods and attributes are inherited in the presence of multiple inheritance. Python 3 uses \textit{C3 linearization} algorithm to determine the MRO. We explain briefly how this algorithm works.
+
+\subsubsection{C3 Linearization}
+The algorithm works by defining the MRO, called the linearization, of every class. The linearization a class is a function of the linearizations of its parent classes (if it has any). \\
+
+The linearization of a class is a list beginning by the class itself then a unique merge of the linearizations of the parents of this class and a list of these parents.
+
+\begin{lstlisting}
+linearization[A] = [A] + merge(parents_linearizations, parents)
+\end{lstlisting}
+
+The merge function is responsible of merging several lists into one list. It works as follows:
+
+\begin{itemize}
+	\item Select the first head of the lists which doesn't appear in the tail of any other list.
+	\item The selected element is removed from all the lists where it appears as a head and is added to the output list.
+	\item Repeat the above two steps until all the lists are empty
+	\item If no head can be removed and the lists are not yet empty, then no consistent MRO is possible.
+\end{itemize}
+
+For example, merging the lists \lstinline|[B, A]| \lstinline|C, A]|, \lstinline|[B, C]| will be as follows:
+\begin{itemize}
+	\item Select \lstinline|B| to be the good head and append it to the result list, since it does not appear in the tail of any list.
+	\item Remove \lstinline|B| from all the lists. Now the lists are \lstinline|[A]|, \lstinline|[C, A]| and \lstinline|[C]|.
+	\item Similarly, remove the head \lstinline|C|. Now the lists are \lstinline|[A]|, \lstinline|[A]| and \lstinline|A|.
+	\item Select \lstinline|A|. Now all the lists are empty and the result of the merge is \lstinline|B, C, A|.
+\end{itemize}
+
+Below is a Python code describing the linearization algorithm:
+
+\begin{lstlisting}
+def linearization(cls):
+	parents_linearizations = []
+	for parent in parents(cls):
+		parents_linearizations.append(linearization(parent))
+	
+	return [cls] + merge(*parents_linearizations, parents(cls))
+	
+def merge(*lists):
+	result = []
+	while lists_are_not_empty(lists):
+		for l in lists:
+			head = l[0]
+			good_head = True
+			# Check if the head doesn't appear in the tail of any list
+			for l2 in lists:
+				if head in l2[1:]:
+					good_head = False
+					break
+			
+			if good_head:
+				# Can remove this head
+				result.append(head)
+				for l2 in lists:
+					if head in l2:
+						l2.remove(head)
+				break
+	return result		
+\end{lstlisting}
+
+Let us see a more concrete example:
+
+\begin{lstlisting}
+class A:
+	def f(self):
+		return A
+
+class B(A):
+	pass
+
+class C(A):
+	def f(self):
+		return C
+		
+class D(B, C):
+	pass
+	
+x = D().f()
+\end{lstlisting}
+
+Method \lstinline|f| in class \lstinline|A| return the type of the class \lstinline|A| itself. Similarly, that in \lstinline|C| returns the type of class \lstinline|C|. Now which of these is inherited by class \lstinline|D|? Let us calculate the linearization of each class.
+
+Let function \lstinline|L(x)| denote the linearization of class \lstinline|x|.
+\begin{lstlisting}
+L[A] = [A] + merge([object]) = [A, object]
+L[B] = [B] + merge(L(A), [A])
+     = [B] + merge([A, object], [A])
+     = [B] + [A, object]
+     = [B, A, object]
+Similarly,
+L[C] = [C, A, object]
+L[D] = [D] + merge(L(B), L(C), [B, C])
+     = [D] + merge([B, A, object], [C, A, object], [C, B])
+     = [D] + [B, C, A, object]
+     = [D, B, C, A, object]
+\end{lstlisting}
+
+Now to determine which method \lstinline|f| is inherited by class \lstinline|D|, we traverse the linearization of class \lstinline|D| and it inherits from the first class that it encounters which implements the method \lstinline|f|. So class \lstinline|D| inherits method \lstinline|f| from class \lstinline|C|, because it is the first class in the linearization of \lstinline|D| which implements \lstinline|f|, and the type of the variable \lstinline|x| is inferred to be \lstinline|Type[C]|.
+
+\subsubsection{Overridden Methods Variance}
+
 \subsection{Function Calls and Class Instantiation Inference}
 \subsection{Attribute Access}
 \subsection{Module Importing}
