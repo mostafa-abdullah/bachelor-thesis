@@ -886,8 +886,199 @@ L[D] = [D] + merge(L(B), L(C), [B, C])
 Now to determine which method \lstinline|f| is inherited by class \lstinline|D|, we traverse the linearization of class \lstinline|D| and it inherits from the first class that it encounters which implements the method \lstinline|f|. So class \lstinline|D| inherits method \lstinline|f| from class \lstinline|C|, because it is the first class in the linearization of \lstinline|D| which implements \lstinline|f|, and the type of the variable \lstinline|x| is inferred to be \lstinline|Type[C]|.
 
 \subsubsection{Overridden Methods Variance}
+Variance is a topic that usually comes with any nominal type system which defines subtype relationships between its types. There are four forms of variance: invariance, covariance, contra-variance and bi-variance. We will explain these forms in the context of functions. See the following classes structure for illustration:
+\begin{lstlisting}
+class A: ...
+class B(A): ...
+class C(B): ...
+\end{lstlisting}
 
+And the following function:
+\begin{lstlisting}
+def f(x: B): ...
+\end{lstlisting}
+
+Function \lstinline|f| accepts an argument \lstinline|x| of type \lstinline|B|.
+
+\textbf{Invariant} functions which are defined for a certain type does not accept neither super types nor subtypes of this type. So an invariant \lstinline|f| can only accept \lstinline|B| instances, not \lstinline|A| or \lstinline|C|.
+
+\textbf{Bi-variant} functions accept both super types and subtypes. So a bi-variant \lstinline|f| will accept instances of \lstinline|A|, \lstinline|B| and \lstinline|C|.
+
+\textbf{Covariant} functions accept subtypes but not super types. So a covariant \lstinline|f| accepts \lstinline|B| and \lstinline|C|, but not \lstinline|A|.
+
+\textbf{Contra-variant} functions accept super types but not subtypes. A contra-variant \lstinline|f| accepts \lstinline|A| and \lstinline|B|, but not \lstinline|C|.
+
+Referring back to the classes structure in the above example, let us augment these classes with some methods:
+
+\begin{lstlisting}
+class A:
+	def f(self, x: int) -> int:
+		return x
+		
+class B(A):
+	def f(self, x):
+		return x
+\end{lstlisting}
+
+Class \lstinline|A| has a method \lstinline|f| which accepts subtypes of \lstinline|int| as its argument and returns an \lstinline|int| type. Class \lstinline|B| extends \lstinline|A| and overrides the method \lstinline|f|. Assume a function \lstinline|foo| which accepts an instance of \lstinline|A| as its argument.
+
+\begin{lstlisting}
+def foo(a: A):
+	x = a.f(1)
+	# .. more statements which use `x` ..
+\end{lstlisting}
+
+Now \lstinline|x| is expected to have the type \lstinline|int| (the return type of method \lstinline|f| in class \lstinline|A|). Since \lstinline|B <: A|, then \lstinline|B| instances can be used whenever \lstinline|A| instances are expected. So, \lstinline|B| instances can be passed as the argument for \lstinline|foo|. Therefore, the return type of method \lstinline|f| in class \lstinline|B| \textbf{must} also allow all the operations that are executed in in the function \lstinline|foo|. So it must be subtype of the return type of the overridden method \lstinline|f| in class \lstinline|A|. Therefore, the return type of overriding methods is covariant with the return type of the overridden methods.
+
+On the other hand, and argument passed to the method \lstinline|f| in class \lstinline|A| must be also compatible with the corresponding argument in class \lstinline|B|. So the types of arguments in the overriding method in \lstinline|B| \textbf{must} be super types of the corresponding ones in the overridden method. Therefore, the types of arguments of overriding methods are contra-variant with the corresponding ones in the overridden methods. \\
+
+One thing to consider is the usage of default arguments in the presence of these variance constraints. Referring back to the example, any call to method \lstinline|f| in class \lstinline|f| takes into account that it might be a call to the method \lstinline|f| in class \lstinline|B| instead. So any call to \lstinline|f| on an \lstinline|A| instance must also be valid as a call to \lstinline|f| on a \lstinline|B| instance. Therefore, the number of required arguments which have no default value in the overriding method in the subclass must be less than or equal to the required arguments in the overridden method, and the total number of arguments in the overriding method in the subclass must be greater than or equal to the total number of arguments in the super class. For example, assume the following method exists in class \lstinline|A|:
+\begin{lstlisting}
+def g(self, x, y=1):
+	pass
+\end{lstlisting}
+
+Then the calls \lstinline|a.g(1)| and \lstinline|a.g(1, 2)| are both valid, where \lstinline|a| is an instance of class \lstinline|A|. These two calls must also be valid if they were invoked on any instance of a subclass of \lstinline|A|. So if class \lstinline|B| overrides method \lstinline|g|, the maximum number of required arguments it can have is one, and the minimum number of total arguments it can have is two (ignore the first \lstinline|self| receiver argument).\\
+
+Formally, if the number of required arguments and arguments with default values in the super class are \lstinline|a| and \lstinline|b| respectively, and those of the subclass are \lstinline[mathescape]|a$'$| and \lstinline[mathescape]|b$'$|, then the following conditions must hold:
+\begin{lstlisting}[mathescape]
+a$'$ $\leq$ a 
+a$'$ + b$'$ $\geq$ a + b
+\end{lstlisting}
+
+In the presence of multiple inheritance, if a method exists in more than one super class, then the overriding methods must satisfy the variance conditions above with the methods in all the super classes, because the subclass instance can be used where any instance of the super classes is expected. For example, if a class \lstinline|A| extends both classes \lstinline|B| and \lstinline|C|, then an instance of \lstinline|A| can be used where an instance of \lstinline|B| or \lstinline|C| is expected.
+
+\subsubsection{More on Multiple Inheritance}
+Supporting multiple inheritance comes with a lot of scenarios to consider. One of them is the call to \lstinline|super()|. The function \lstinline|super| calls the next method in the method resolution order. So a \lstinline|super| call in a certain method can refer to many different method, depending on from where this call is originating. See the following example:
+\begin{lstlisting}
+class A:
+	def f(self): ...
+		
+class B(A):
+	def f(self):
+		return super().f()
+	
+class C(A):
+	def f(self):
+		return super().f()
+
+class D(B, C):
+	def f(self):
+		return super().f()
+\end{lstlisting}
+
+If asked which class \lstinline|super| in the the method \lstinline|f| in class \lstinline|B| is referring to, the most intuitive answer is class \lstinline|A|. However, this is not always the case. If the \lstinline|super| call originated from method \lstinline|f| in class \lstinline|D|, and as we just discussed, the \lstinline|super| call refers to the next method in the MRO. Class \lstinline|D| has the linearization \lstinline|[D, B, C, A]|. So the super in \lstinline|D| will refer to \lstinline|B|, and that in \lstinline|B| refers to \lstinline|C|, which is counter-intuitive. This makes the inference for the \lstinline|super| call very complicated, since the super-methods may have different number of arguments or may even not exist. Assume that the class \lstinline|C| did not have the function \lstinline|f|, then calling \lstinline|super| from \lstinline|f| in class \lstinline|B| would still be fine since it may refer to \lstinline|f| in class \lstinline|A|, and such resolution is not always possible to be statically resolved.\\
+
+Another tricky case that comes with multiple inheritance is to decide which data attributes to inherit. See the following example:
+
+\begin{lstlisting}
+class A:
+	def __init__(self):
+		self.x = None
+class B:
+	def __init__(self):
+		self.y = None
+
+class C(A, B):
+	pass
+\end{lstlisting}
+
+Class \lstinline|C| extends both \lstinline|A| and \lstinline|B|, and according to the linearization of \lstinline|C|, the \lstinline|__init__| method of only \lstinline|A| is inherited by \lstinline|C|. So \lstinline|C| has the attribute \lstinline|self.x| only, and does not have the attribute \lstinline|self.y| defined in class \lstinline|B|. This reduces the safety of the type system. Since \lstinline|C <: B|, then any instance of \lstinline|C| should be used where \lstinline|B| is expected. So an attribute access on a \lstinline|B|, like \lstinline|B().y| instance should also be compatible with all its subclasses, which does not apply in the example given above. For example, the following function is expecting a \lstinline|B| instance as its argument and it returns its \lstinline|self.y| attribute. This function can be called with an instance of any subclass of class \lstinline|B|.
+\begin{lstlisting}
+def f(b: B):
+	return b.y
+	
+f(B())
+f(C()) 
+\end{lstlisting}
+
+The above example passes our static type checking, but fails at runtime.
 \subsection{Function Calls and Class Instantiation Inference}
+Having explained the inference for class and function definitions, we are now ready to discuss the rules for inferring function calls and classes instantiation. A \lstinline|Call| AST node can represent a call to a function (or a method) or an instantiation of a type. Therefore, disjunctions for both possibilities are added to the SMT problem.
+
+\subsubsection{Function Calls}
+Whenever a \lstinline|Call| node is encountered, the type of the called construct is inferred in the current context, and then the following axioms are generated:
+\begin{itemize}
+	\item If \lstinline|a| denotes the number of arguments in the function call, \lstinline|b| denotes the number of argument in the called function and \lstinline|c| denotes the number of default arguments in this function, then the following condition must hold
+	\begin{lstlisting}[language=, mathescape]
+		a $\leq$ b
+		b - a $leq$ c
+	\end{lstlisting}
+	
+	\item Every argument passed to the function call is a subtype of the corresponding one in the function type.
+	
+	\item The resulting type from a function call is the inferred return type of the function.
+\end{itemize}
+
+Formally, a function call with argument types \lstinline[mathescape]|[t$_1$, .., t$_a$]| to a function of type \lstinline[mathescape]|Callable[[t$'_1$, .., t$'_b$], t]| have the following conditions:
+\begin{itemize}
+	\item \lstinline[mathescape]|a $\leq$ b $\land$ b - a $\leq$ c| : \lstinline|c| is number of default arguments in the function.
+	\item \lstinline[mathescape]|t$_i$ <: t$'_i$ : 1 <= i <= a|.
+	\item The type of the call is \lstinline|t|.
+\end{itemize}
+
+\subsubsection{Class Instantiation}
+Instantiating a class is equivalent to a call to the \lstinline|__init__| method of this class, and the type of call is the instance of this class. A disjunction for every possible class is added, and Z3 picks the one which satisfies the function call axioms explained above. See the following example:
+\begin{lstlisting}
+class A: ...
+class B: ...
+
+def f(x):
+return x()
+\end{lstlisting}
+
+When the call \lstinline|x()| is encountered, the following axioms are disjunction-ed and added to the SMT solver:
+
+\begin{itemize}
+	\item \lstinline[mathescape]|x_type == Type[A] $\land$ f_return_type == A|
+	\item \lstinline[mathescape]|x_type == Type[B] $\land$ f_return_type == B|
+	\item \lstinline[mathescape]|x_type == Callable[[], T] $\land$ f_return_type == T|, such that \lstinline|T| can be any type, and Z3 picks only one.
+\end{itemize}
+
+\subsubsection{Calls to Functions with Generic Type Variables}
+As discussed earlier, function definitions containing generic type variables are treated apart from Z3. Accordingly, calls to these functions have to be also treated in a special way.\\
+
+When a \lstinline|TypeVar| declaration is encountered, it is stored in state of the annotation resolver. Additionally, two more information might be attached with every \lstinline|TypeVar| declaration:
+\begin{itemize}
+	\item The type variable possibilities, that is the possible types that the type unifying with this type variable can achieve. Example: \lstinline|TypeVar("T", [int, str])|. Only \lstinline|int| and \lstinline|str| (not even their proper subtypes) can unify with this type variable \lstinline|T|.
+	\item The upper bound of the type variable. This allows unification with a certain type and its subtypes. For example, the type variable \lstinline|TypeVar("T", bound=int)| allows \lstinline|int| and \lstinline|bool| to unify with it.
+\end{itemize}
+
+When a call to a function containing a type variable annotation is encountered, a local dictionary is created which maps the generic type variable to the Z3 constant of the type unifying with it, then if an argument or the return has an annotation containing this type variable, it is unified with the type this type variable is mapped to. Let us see an example for illustration:
+
+\begin{lstlisting}
+from typing import TypeVar
+
+T = TypeVar('T', [int, str])
+
+def f(x: T) -> List[T]: ...
+
+a = f(2)
+\end{lstlisting}
+
+The function \lstinline|f| takes an argument and returns a list of elements which have the type of this argument. The argument must be either of type \lstinline|int| or \lstinline|str|. At first, the generic type variable \lstinline|T| is saved in the annotation resolver. Then when the function call \lstinline|f(2)| is reached during the type inference traversal, an empty dictionary for the type variable mapping is created. Now the unification algorithm starts. When we check the arguments, we begin to resolve the type annotation in the function definition. At the first argument \lstinline|x: T|, it is the first time to encounter the type variable \lstinline|T|, so a new Z3 constant is created and is added to the map, then the axiom for the type variable possibilities is added to this constant:
+\begin{lstlisting}
+Or(
+	t_z3_const == int,
+	t_z3_const == str
+)
+\end{lstlisting}
+And the type variable is added to the dictionary:
+\begin{lstlisting}
+map = {
+	'T': t_z3_const
+}
+\end{lstlisting}
+Then the type of the call argument \lstinline|2| is unified with this Z3 constant.
+\begin{lstlisting}
+int == t_z3_const
+\end{lstlisting}
+
+For the return type, the annotation resolver attempts to recursively resolve the type of \lstinline|List[T]|. When it reaches the generic type variable \lstinline|T|, it sees that it already exists in the map, so it returns this type from the map, and the return type will be \lstinline|List[t_z3_const]|.
+
+By solving all the above axioms together, the type of the function call evaluates to \lstinline|List[int]|.
+
+Similarly, a call \lstinline|f("string")| will unify the type \lstinline|str| with the generic type variable, and the resulting type will be \lstinline|List[str]|.
 \subsection{Attribute Access}
 \subsection{Module Importing}
 
