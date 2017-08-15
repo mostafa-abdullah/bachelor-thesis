@@ -1063,7 +1063,7 @@ Or(
 	t_z3_const == str
 )
 \end{lstlisting}
-And the type variable is added to the dictionary:
+And the type variable \lstinline|T| is added to the dictionary:
 \begin{lstlisting}
 map = {
 	'T': t_z3_const
@@ -1078,8 +1078,50 @@ For the return type, the annotation resolver attempts to recursively resolve the
 
 By solving all the above axioms together, the type of the function call evaluates to \lstinline|List[int]|.
 
-Similarly, a call \lstinline|f("string")| will unify the type \lstinline|str| with the generic type variable, and the resulting type will be \lstinline|List[str]|.
+Similarly, a call \lstinline|f("string")| will unify the type \lstinline|str| with the generic type variable, and the resulting type will be \lstinline|List[str]|.\\ 
 \subsection{Attribute Access}
+Attribute access is attempting to access the contents of an object. The syntax of attribute access in Python is \lstinline|some_object.some_property|. In our type inference, the attribute access falls under three kinds of objects:
+\begin{itemize}
+	\item Accessing attributes of user-defined classes.
+	\item Accessing attributes of built-ins.
+	\item Accessing contents of an imported module.
+\end{itemize}
+
+\subsubsection{User-defined Classes}
+For user-defined classes, two types of axioms are generated: axioms for the class types and for the class instances. \\
+
+As discussed earlier, the pre-analyzer provides a mapping from the classes to their class-level and instance level-attributes.
+As for the axioms generated for the class types, disjunction axioms for all the classes that contain the accessed class-level attributes are generated. For the class instances, similar disjunctions are generated but for instance-level attributes. See the following example:
+\begin{lstlisting}
+class A:
+	x = 1
+	def __init__(self):
+		self.y = 1
+
+class B:
+	x = "str"
+\end{lstlisting}
+
+If we encounter the attribute access \lstinline|a.x|, the following (simplified) disjunctions are created:
+\begin{lstlisting}
+Or(
+	And(a == Type[A], a.x == int),
+	And(a == Type[B], a.x == str),
+	And(a == A, a.x == int),
+	And(a == B, a.x == str)
+)
+\end{lstlisting}
+
+And then Z3 picks a valid one in the end after solving all the imposed constraints. Note that disjunctions for instances are also added in the case of class-level attributes, because as mentioned before, class-level attributes are included in the instance-level attributes. So an attribute access like \lstinline|a.y| will only generate disjunctions for instances as follows:
+\begin{lstlisting}
+Or(
+	And(a == A, a.y == int)
+)
+\end{lstlisting}
+\subsubsection{Built-ins}
+
+
+\subsubsection{Attribute Access Call}
 \subsection{Module Importing}
 
 \section{Inference Output}
