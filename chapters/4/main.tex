@@ -1002,7 +1002,7 @@ Whenever a \lstinline|Call| node is encountered, the type of the called construc
 	\item If \lstinline|a| denotes the number of arguments in the function call, \lstinline|b| denotes the number of argument in the called function and \lstinline|c| denotes the number of default arguments in this function, then the following condition must hold
 	\begin{lstlisting}[language=, mathescape]
 		a $\leq$ b
-		b - a $leq$ c
+		b - a $\leq$ c
 	\end{lstlisting}
 	
 	\item Every argument passed to the function call is a subtype of the corresponding one in the function type.
@@ -1024,7 +1024,7 @@ class A: ...
 class B: ...
 
 def f(x):
-return x()
+	return x()
 \end{lstlisting}
 
 When the call \lstinline|x()| is encountered, the following axioms are disjunction-ed and added to the SMT solver:
@@ -1112,18 +1112,98 @@ Or(
 )
 \end{lstlisting}
 
-And then Z3 picks a valid one in the end after solving all the imposed constraints. Note that disjunctions for instances are also added in the case of class-level attributes, because as mentioned before, class-level attributes are included in the instance-level attributes. So an attribute access like \lstinline|a.y| will only generate disjunctions for instances as follows:
+And then Z3 picks a valid one in the end after solving all the imposed constraints. Note that disjunctions for instances are also added in the case of class-level attributes, because as mentioned before, class-level attributes are included in the instance-level attributes. An attribute access like \lstinline|a.y| will only generate disjunctions for instances as follows:
 \begin{lstlisting}
 Or(
 	And(a == A, a.y == int)
 )
 \end{lstlisting}
 \subsubsection{Built-ins}
+Since we handle built-in types specially apart from the classes inference, the attribute access for built-ins also has to be addressed in a special manner. Our inference is currently only able to handle built-in attribute access for instance methods calls. So an attribute access like \lstinline|"string".upper()| is supported but the one like \lstinline|"string".upper| is not. \\
 
+We organize the stub files for built-in methods separately. A stub method of a built-in typically looks as follows:
 
-\subsubsection{Attribute Access Call}
+\begin{lstlisting}
+def method(x: built_in_type, *args) -> return_type:
+	...
+\end{lstlisting}
+
+For example, the stub for \lstinline|append| method in the \lstinline|list| type looks as follows:
+
+\begin{lstlisting}
+from typing import TypeVar
+
+T = TypeVar('T')
+
+def append(l: List[T], e: T) -> None:
+	...
+\end{lstlisting}
+
+And whenever we have an attribute-access call, like \lstinline|x.y()|, disjunction axioms are generated for all the possible built-in types and the user-defined types which contain this called method. Assume that we have the following class:
+
+\begin{lstlisting}
+class A:
+	def append(self, x):
+		...
+		
+\end{lstlisting}
+
+Then when the attribute access \lstinline|x.append(1)| for example is encountered, two disjunctions are generated, the first is that \lstinline|x| is \lstinline|List[int]| (since we are appending \lstinline|int|), and the other is that \lstinline|x| is of type \lstinline|A|, and \lstinline|int| is a subtype of the type of argument of the method \lstinline|append| in class \lstinline|A|.
+
+\begin{lstlisting}
+Or(
+	x == List[int],
+	And(x == A, subtype(int, append_arg_x)
+)
+\end{lstlisting}
+
+\subsubsection{Calling Static Methods}
+In our type inference tool, static methods can only be defined by using the \lstinline|@staticmethod| decorator, and they can only be invoked on class types, not their instances. For every attribute-access call, disjunctions for possible static method calls are also added.
+
 \subsection{Module Importing}
+Importing a module is gaining access to the code in this module. Python provides several ways for importing modules, the most common way and the only one that we currently support is using the \lstinline|import| statements.
 
+There are two forms of the import statements: \lstinline|import| and \lstinline|import-from|. In both ways, the import handler discussed earlier is responsible for the importing mechanism in our type inference. The handler searches for the imported file first in the stubs for the built-in libraries, then using the file system according to the resolved path of the module. It then creates a new context in which it infers the contents of the imported module. What happens after the module inference depends on the type of the \lstinline|import| statement:
+
+\subsubsection{\lstinline|import module|}
+The context in which the module was inferred is added to the global context of the parent module. In the following example, the global context is initially empty.
+
+\begin{lstlisting}
+import X
+\end{lstlisting}
+
+Now the context contains the context of the imported module.
+
+\begin{lstlisting}
+context = {
+	'X': module_x_context
+}
+\end{lstlisting}
+So when the attribute access \lstinline|X.y| is encountered, we know that \lstinline|X| is a module context, so we infer the type of the expression \lstinline|y| in the context of the module \lstinline|X|. \\
+
+Similar to functions with generic type variables, treating this kind of \lstinline|import| statement apart from Z3 prevents the programmer of using the imported modules as first-class object. The only way to use the imported module is by accessing its contents directly.
+
+\subsubsection{\lstinline|from module import ...|} 
+This kind of \lstinline|import| is different from the previous one is that its context is not saved into the context of the importing module, but a merging of both contexts takes place. For example:
+\begin{lstlisting}
+from X import A, B
+\end{lstlisting}
+
+This will lead the global context to have the following contents:
+\begin{lstlisting}
+context = {
+	'A': A_z3_const,
+	'B': B_z3_const
+}
+\end{lstlisting} \\
+
+In both kinds of \lstinline|import|, it is possible to give an alias to the imported module or objects.
+\begin{lstlisting}
+import X as x
+from X import A as a, B as b
+\end{lstlisting}
+
+In this case, the alias is added to the context instead of the actual name itself.
 \section{Inference Output}
 \subsection{Typed AST}
 \subsection{Error Reporting}
