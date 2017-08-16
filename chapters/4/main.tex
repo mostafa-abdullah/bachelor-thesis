@@ -33,7 +33,7 @@ The pre-analyzer takes the AST of the input program and provides the following i
 
 \begin{itemize}
 	\item The maximum length of tuples that appear in the input program.
-	\item The maximum length of function arguments that appear in the program.
+	\item The maximum number of function arguments that appear in the program.
 	\item A mapping from all user-defined classes to their corresponding attributes and methods. It is important to differentiate between two kinds of these attributes: \textit{class-level attributes} and \textit{instance-level attributes}. Class-level attributes are those that are not specific to certain instances, and can be accessed with the class type itself, while instance-level attributes are those which are tied to the class instance during its instantiation or later on. For instance, the class \lstinline|A| in the following example has two attributes, namely \lstinline|x| and \lstinline|y|, where attribute \lstinline|x| is a class-level attribute while \lstinline|y| is an instance-level attribute.
 	
 	\begin{lstlisting}
@@ -62,7 +62,7 @@ In addition to the above information, the pre-analyzer also does the following p
 \begin{itemize}
 	\item Adds a default \lstinline|__init__| method to classes which do not contain one.
 	
-	This default \lstinline|__init__| method has the following source:
+	This default \lstinline|__init__| method has the following form:
 	\begin{lstlisting}
 def __init__(self):
 	pass
@@ -71,7 +71,7 @@ def __init__(self):
 \end{itemize}
 
 \subsection{Context Hierarchy}
-A context contains the information that a certain scope in the program holds. It contains a mapping from the variable names in this context to the Z3 variables representing their types, which are evaluated to the correct types after solving the SMT problem. Every context also has references to its children contexts (which are created inside the scope of this context) and a reference to its parent context.
+A context contains the information that a certain scope in the program holds. It contains a mapping from the variable names in this scope to the Z3 variables representing their types, which are evaluated to the correct types after solving the SMT problem. Every context also has references to its children contexts (which are created inside the scope of this context) and a reference to its parent context.
 
 Below is a listing of the constructs which create new contexts:
 
@@ -361,7 +361,7 @@ In our type system, only strings (and byte strings), lists, dictionaries and tup
 	\item For dictionaries, the index type should be the same as the inferred type of the dictionary keys, and the result type is the type of the dictionary values.
 \end{itemize}
 
-As for \textbf{sliced} subscripts, only strings, lists and tuples support slicing. The slicing one or more keys must be a subtype of \lstinline|int|. The result type from slicing is the same as the sliced object. For the same reason stated above, slicing the tuple results in the same tuple type because resolving the slicing ends is impossible statically. This is also sound because any operation applied on the result from slicing a tuple should be compatible with every element type in the original tuple.
+As for \textbf{sliced} subscripts, only strings, lists and tuples support slicing. The slicing keys must be a subtype of \lstinline|int|. The result type from slicing is the same as the sliced object. For the same reason stated above, slicing the tuple results in the same tuple type because resolving the slicing ends is impossible statically. This is also sound because any operation applied on the result from slicing a tuple should be compatible with every element type in the original tuple.
 
 \subsubsection{Comprehensions}
 Comprehensions are constructs which enable the programmer to create lists, sets or dictionaries in a natural and elegant way from any other iterable object.
@@ -406,9 +406,9 @@ y = [[i * 2 for i in j] for j in x]
 
 The variable \lstinline|y| is now a 2D array with the same dimensions as x, where each element in \lstinline|y| is the double of the corresponding one in \lstinline|x|.
 
-The inference for comprehensions nesting works exactly the same as normal comprehensions: The comprehension \lstinline|[[i * 2 for i in j]]| is treated at first as the larger comprehension element, and \lstinline|j| is inferred to be \lstinline|List[int]|. Now having the type of \lstinline|j| in the local context of the comprehension, the type of the inner comprehension can be inferred with the same rule. Therefore, the inner comprehension will have the type \lstinline|List[int]| and the outer one will have the type \lstinline|List[List[int]]|, which is the type of \lstinline|y|.\\
+The inference for comprehensions nesting works exactly the same as normal comprehensions: The comprehension \lstinline|[i * 2 for i in j]| is treated at first as the outer comprehension element, and \lstinline|j| is inferred to be \lstinline|List[int]|. Now having the type of \lstinline|j| in the local context of the comprehension, the type of the inner comprehension can be inferred with the same rule. Therefore, the inner comprehension will have the type \lstinline|List[int]| and the outer one will have the type \lstinline|List[List[int]]|, which is the type of \lstinline|y|.\\
 
-The inference for dictionary comprehension works the same way as lists and sets. The only difference is that the comprehension element is composed of a mapping instead of a single expression. The following example creates a dictionary comprehension which maps a every value in a list to its square.
+The inference for dictionary comprehension works the same way as lists and sets. The only difference is that the comprehension element is composed of a mapping instead of a single expression. The following example creates a dictionary comprehension which maps every value in a list to its square.
 \begin{lstlisting}
 {a: a * a for a in [1, 2, 3]}
 \end{lstlisting}
@@ -416,12 +416,12 @@ The inference for dictionary comprehension works the same way as lists and sets.
 After inferring the types in the generator expressions, the types for the dictionary keys and the values in the the comprehension element are inferred in the local context of the generators.
 
 \subsubsection{Variables Inference}
-The context contains a mapping from variable names to the Z3 constants that represent their types. The inference for variables in as simple as looking up the variable in this mapping.
+The context contains a mapping from variable names to the Z3 constants that represent their types. The inference for variables is as simple as looking up the variable in this mapping.
 
 The variables are stored in the context in the assignment statements, function definitions or class definitions. The inference for these constructs are explained in the upcoming sections.
 
 \subsection{Statements Axioms}
-A statement is a complete instruction that can be executed by the Python interpreter. It is a complete line of code that performs a certain action. Note that every expression is also a statement.
+A statement is a complete instruction that can be executed by the Python interpreter. It is a complete line of code that performs a certain action. Note that every expression on its own is also a statement.
 
 We explain here how the inference of different statements in our type system works.
 
@@ -453,7 +453,7 @@ Assume that these two assignment statements are encountered:
 	y = "string"
 \end{lstlisting}
 
-Since variable \lstinline|x| already exists in the context, no new Z3 constant is created for it, and the axiom is added on the Z3 constant it is mapped to \lstinline|x_z3_constant|:
+Since variable \lstinline|x| already exists in the context, no new Z3 constant is created for it, and the axiom is added on the Z3 constant it is mapped to, \lstinline|x_z3_constant|:
 \begin{lstlisting}
 	subtype(int, x_z3_constant)
 \end{lstlisting}
@@ -479,7 +479,7 @@ x, y = 1, "str"
 
 The inference for this kind of assignment works in a similar manner to the variable assignment. The difference is that the target elements are checked one by one if they already exist in the context, and similarly, a new Z3 constant is created for the targets which do not exist in the context.
 
-Since the lists in our type system have homogeneous elements, the types involved in list assignment must also have the same type. So the assignment \lstinline|[a, b] = [1, "str"]| will lead both variables \lstinline|a| and \lstinline|b| to have type \lstinline|object| (the common super type of \lstinline|int| and \lstinline|str|).
+Since the lists in our type system have homogeneous elements, the types involved in the list assignment must also have the same type. So the assignment \lstinline|[a, b] = [1, "str"]| will lead both variables \lstinline|a| and \lstinline|b| to have type \lstinline|object| (the common super type of \lstinline|int| and \lstinline|str|).
 
 \textbf{Subscript Assignment}
 \begin{lstlisting}
@@ -487,7 +487,7 @@ a[x] = b
 a[x:y:z] = b
 \end{lstlisting}
 
-Any class which implements \lstinline|__setitem__| method is capable of performing subscript assignment. However for simplicity and similar to subscript expressions inference, we only consider built-in types here. We explain later how to extend the inference to support include user-defined classes as well.
+Any class which implements \lstinline|__setitem__| method is capable of performing subscript assignment. However for simplicity and similar to subscript expressions inference, we only consider built-in types here. We explain later how to extend the inference to include user-defined classes as well.
 
 Strings, byte strings and tuples are immutable objects, so they do not support subscript assignment. So whenever a subscript assignment is encountered, an axiom is generated that the subscripted object is not \lstinline|str|, \lstinline|bytes| or any \lstinline|Tuple| type.\\
 
@@ -504,7 +504,7 @@ The above code generates two hard constraints and two soft ones. The hard ones s
 \subsubsection{Body (Block of Statements) Type}
 A code block in Python is a group of Python statements which start with the same indentation tabs.
 
-We assume that every non-expression statement in Python has a \lstinline|None| type, except the \lstinline|return| statement which has the type of the value it returns.
+We assume that every statement in Python has a \lstinline|None| type, except the \lstinline|return| statement which has the type of the value it returns.
 
 The type of a code block is the common super type of all non-\lstinline|None| statements, or \lstinline|None| if all the block statements have a type \lstinline|None|.
 
@@ -528,7 +528,7 @@ A control-flow statement is the statement which results in a choice being made b
 
 There are three variants of control-flow statements in Python: \lstinline|if| statements, \lstinline|for| loops and \lstinline|while| loops. However, the axioms generated by these axioms are the same, except that an additional axiom for the loop variable is generated in the case of \lstinline|for| loops. \\
 
-Each control-flow statement has a required body block and an optional else block, and a separate local context is created for each. If one branch introduces a new variable, it will only be added to the parent context (which contains the control-flow statement) only if the other branch also defines this variable. This prevents attempting to use a variable which might have not been defined. See the following example for illustration:
+Each control-flow statement has a required body block and an optional else block, and a separate local context is created for each. If one branch introduces a new variable, it will only be added to the parent context (which contains the control-flow statement) if the other branch also defines this variable. This prevents attempting to use a variable which might have not been defined. See the following example for illustration:
 
 \begin{lstlisting}
 if some_condition:
@@ -555,9 +555,9 @@ else:
 
 
 \subsubsection{Deletion}
-The dynamic nature of Python allows the programmer to delete a value at runtime. The type inference supports all kinds of deletion except attribute deletion. The reason for not supporting attribute deletion will be discussed after explaining classes and attributes inference.\\
+The dynamic nature of Python allows the programmer to delete a value at runtime. The type inference supports all kinds of deletion except attribute deletion. Attribute deletion is not supported because in a nominal static type system, all instances of a certain type are expected to have the same attribute everywhere in the program.
 
-The simplest kind of deletion is normal \textbf{variable deletion}. The deleted variable is simply from the context where it appears. Also, when a variable is deleted in one branch of a control-flow statement, it is also deleted from the context, because determining which branch was taken is not possible statically, so it is safer to assume that it was deleted.
+The simplest kind of deletion is normal \textbf{variable deletion}. The deleted variable is simply removed from the context. Also, when a variable is deleted in one branch of a control-flow statement, it is also deleted from the context, because determining which branch was taken is not possible statically, so it is safer to assume that it was deleted.
 
 For example, using the variable \lstinline|x| after the following \lstinline|if| statement is unsafe, because the \lstinline|then| branch might have been taken, where the variable \lstinline|x| is deleted.
 \begin{lstlisting}
@@ -644,7 +644,7 @@ context = {
 \end{lstlisting}
 
 \subsubsection{Parametric Polymorphism}
-The dynamic structural typing of Python gives a polymorphism nature to its functions. Since all the types are evaluated at runtime and no types are attached to the function arguments or the returned value, the function can accept a value of any type which allows the operations performed inside the function. See the following example for illustration:
+The dynamic structural typing of Python gives a polymorphic nature to its functions. Since all the types are evaluated at runtime and no types are attached to the function arguments or the returned value, the function can accept a value of any type which allows the operations performed inside the function. See the following example for illustration:
 \begin{lstlisting}
 def add(x, y):
 	return x + y
@@ -654,7 +654,7 @@ b = add("a", "b")
 c = add([1, 2], [3, 4])
 \end{lstlisting}
 
-The function \lstinline|add| can accept different classes of types, and the return type depends on which types are passed as the function arguments. One limitation of depending on SMT solving to provide the type to the function is that the solver picks only one model. So referring to the above example, the function of \lstinline|add| can only perform either numeric addition or sequence concatenation, but not both. Thus, the approach described so far prevents this kind of polymorphism.
+The function \lstinline|add| can accept different classes of types, and the return type depends on which types are passed as the function arguments. One limitation of depending on SMT solving to provide the type to the function is that the solver picks only one model. So referring to the above example, the function \lstinline|add| can only perform either numeric addition or sequence concatenation, but not both. Thus, the approach described so far prevents this kind of polymorphism.
 
 To work around this limitation, we introduced the ability to annotate the function with a generic type variable. The syntax for these type variables follow the syntax introduced in PEP 484 \cite{484}.
 
@@ -685,7 +685,7 @@ As mentioned in \ref{pre}, the pre-analyzer provides the following information a
 	\item A mapping from classes to their base classes, or to \lstinline|object| if they do not have any.
 \end{itemize}
 
-Then as described in chapter \ref{chapter:ts}, all the user-defined classes are encoded in the \textit{type sort} data-type, and Z3 uninterpreted constants are created for every method and data attribute which will represent their corresponding types in the generated model, and each class is mapped the Z3 constants representing its own attributes.
+Then as described in chapter \ref{chapter:ts}, all the user-defined classes are encoded in the \textit{type sort} data-type, and Z3 uninterpreted constants are created for every method and data attribute which will represent their corresponding types in the generated model, and each class is mapped to the Z3 constants representing its own attributes.
 
 \subsubsection{Attributes and Methods Inference}
 When a class definition statement is encountered, a local context is created for this class. Then the statements inside the class (its methods and attributes declarations) are also traversed with depth-first manner starting from the class node itself. The type of each statement is then inferred according to the inference rules described for expressions, statements and functions. After the inference for the class contents is done, the types added to the local context of the class are unified with the corresponding Z3 constants which the class is mapped to, which represent the types of the class attributes. Let us discuss the following example for illustration:
@@ -730,7 +730,7 @@ z3_consts = {
 
 It is worth mentioning that the first argument in any instance methods (handling static methods is discussed shortly), called the method receiver, is always automatically inferred to have the type of class itself. So \lstinline|self| in the above examples will have the type \lstinline|A|. \\
 
-At the beginning, the local context of the class is empty. Then the class contents is traversed and the inference works as described before. After the statement \lstinline|x = 1| is encountered, attribute \lstinline|x| is inferred to be of type \lstinline|int|. Similarly, the methods \lstinline|__init__| and \lstinline|get_a| are inferred as described in \ref{func}. In the function \lstinline|__init__|, we infer the type of the instance-level data attribute \lstinline|self.a| to be of type \lstinline|int|. We will see in the attribute access inference how this type is attached to the attribute. The types of the methods \lstinline|__init__| and \lstinline|get_a| are inferred as described in \ref{func}. So in the end, the local context of the class \lstinline|A| looks as follows:
+At the beginning, the local context of the class is empty. Then the class contents is traversed and the inference works as described before. After the statement \lstinline|x = 1| is encountered, attribute \lstinline|x| is inferred to be of type \lstinline|int|. In the function \lstinline|__init__|, we infer the type of the instance-level data attribute \lstinline|self.a| to be of type \lstinline|int|. The types of the methods \lstinline|__init__| and \lstinline|get_a| are inferred as described in \ref{func}. So in the end, the local context of the class \lstinline|A| looks as follows:
 \begin{lstlisting}
 context = {
 	'x': int,
@@ -747,7 +747,7 @@ context['__init__'] == z3_consts['A']['__init__']
 context['get_a'] == z3_consts['A']['get_a']
 \end{lstlisting}
 
-Note that the type of the attribute \lstinline|self.a| is not included in this unification. The inference for such kind of attributes is discussed later in the attribute access inference.
+Note that the type of the attribute \lstinline|self.a| is not included in this unification, since it is already unified during the assignment in the \lstinline|__init__| method.
 
 \subsubsection{Method Decorators}
 Decorators provide a mechanism to dynamically alter the functionality of a function. Decorators in general are not supported in our type inference, since they may dynamically alter type-related functionalities of the functions. The currently supported decorators are only \lstinline|@staticmethod| and \lstinline|@abstractmethod| decorators. \\
@@ -757,7 +757,7 @@ The inference for methods decorated with \lstinline|@staticmethod| work the same
 As for \lstinline|@abstractmethods|, the body type of the method is ignored, and any subclass is enforced to override any abstract method that appears in any of its super classes.
 
 \subsubsection{Inheritance}
-Every class definition can define zero or more classes to extend. Extending a class is explicitly defining a \textit{subtype} relationship between the extending and the extending classes. All the methods which exist in the super classes and are not implemented in the subclass are inherited by this subclass.
+Every class definition can define zero or more classes to extend. Extending a class is explicitly defining a \textit{subtype} relationship between the extending and the extended classes. All the methods which exist in the super classes and are not implemented in the subclass are inherited by this subclass.
 \begin{lstlisting}
 class A:
 	def f(self):
@@ -866,7 +866,7 @@ class D(B, C):
 x = D().f()
 \end{lstlisting}
 
-Method \lstinline|f| in class \lstinline|A| return the type of the class \lstinline|A| itself. Similarly, that in \lstinline|C| returns the type of class \lstinline|C|. Now which of these is inherited by class \lstinline|D|? Let us calculate the linearization of each class.
+Method \lstinline|f| in class \lstinline|A| returns the type of the class \lstinline|A| itself. Similarly, that in \lstinline|C| returns the type of class \lstinline|C|. Now which of these is inherited by class \lstinline|D|? Let us calculate the linearization of each class.
 
 Let function \lstinline|L(x)| denote the linearization of class \lstinline|x|.
 \begin{lstlisting}
@@ -900,7 +900,7 @@ def f(x: B): ...
 
 Function \lstinline|f| accepts an argument \lstinline|x| of type \lstinline|B|.
 
-\textbf{Invariant} functions which are defined for a certain type does not accept neither super types nor subtypes of this type. So an invariant \lstinline|f| can only accept \lstinline|B| instances, not \lstinline|A| or \lstinline|C|.
+\textbf{Invariant} functions which are defined for a certain type do not accept neither super types nor subtypes of this type. So an invariant \lstinline|f| can only accept \lstinline|B| instances, not \lstinline|A| or \lstinline|C|.
 
 \textbf{Bi-variant} functions accept both super types and subtypes. So a bi-variant \lstinline|f| will accept instances of \lstinline|A|, \lstinline|B| and \lstinline|C|.
 
@@ -928,9 +928,9 @@ def foo(a: A):
 	# .. more statements which use `x` ..
 \end{lstlisting}
 
-Now \lstinline|x| is expected to have the type \lstinline|int| (the return type of method \lstinline|f| in class \lstinline|A|). Since \lstinline|B <: A|, then \lstinline|B| instances can be used whenever \lstinline|A| instances are expected. So, \lstinline|B| instances can be passed as the argument for \lstinline|foo|. Therefore, the return type of method \lstinline|f| in class \lstinline|B| \textbf{must} also allow all the operations that are executed in in the function \lstinline|foo|. So it must be subtype of the return type of the overridden method \lstinline|f| in class \lstinline|A|. Therefore, the return type of overriding methods is covariant with the return type of the overridden methods.
+Now \lstinline|x| is expected to have the type \lstinline|int| (the return type of method \lstinline|f| in class \lstinline|A|). Since \lstinline|B <: A|, then \lstinline|B| instances can be used whenever \lstinline|A| instances are expected. So, \lstinline|B| instances can be passed as the argument for \lstinline|foo|. Therefore, the return type of method \lstinline|f| in class \lstinline|B| \textbf{must} also allow all the operations that are executed in the body of the function \lstinline|foo|. So it must be subtype of the return type of the overridden method \lstinline|f| in class \lstinline|A|. Therefore, the return type of overriding methods is covariant with the return type of the overridden methods.
 
-On the other hand, and argument passed to the method \lstinline|f| in class \lstinline|A| must be also compatible with the corresponding argument in class \lstinline|B|. So the types of arguments in the overriding method in \lstinline|B| \textbf{must} be super types of the corresponding ones in the overridden method. Therefore, the types of arguments of overriding methods are contra-variant with the corresponding ones in the overridden methods. \\
+On the other hand, and argument passed to the method \lstinline|f| in class \lstinline|A| must be also compatible with the corresponding argument in class \lstinline|B|. So the types of arguments in the overriding method in \lstinline|B| \textbf{must} be super types of the corresponding ones in the overridden method. Therefore, the types of arguments of the overriding methods are contra-variant with the corresponding ones in the overridden methods. \\
 
 One thing to consider is the usage of default arguments in the presence of these variance constraints. Referring back to the example, any call to method \lstinline|f| in class \lstinline|f| takes into account that it might be a call to the method \lstinline|f| in class \lstinline|B| instead. So any call to \lstinline|f| on an \lstinline|A| instance must also be valid as a call to \lstinline|f| on a \lstinline|B| instance. Therefore, the number of required arguments which have no default value in the overriding method in the subclass must be less than or equal to the required arguments in the overridden method, and the total number of arguments in the overriding method in the subclass must be greater than or equal to the total number of arguments in the super class. For example, assume the following method exists in class \lstinline|A|:
 \begin{lstlisting}
@@ -938,7 +938,7 @@ def g(self, x, y=1):
 	pass
 \end{lstlisting}
 
-Then the calls \lstinline|a.g(1)| and \lstinline|a.g(1, 2)| are both valid, where \lstinline|a| is an instance of class \lstinline|A|. These two calls must also be valid if they were invoked on any instance of a subclass of \lstinline|A|. So if class \lstinline|B| overrides method \lstinline|g|, the maximum number of required arguments it can have is one, and the minimum number of total arguments it can have is two (ignore the first \lstinline|self| receiver argument).\\
+Then the calls \lstinline|a.g(1)| and \lstinline|a.g(1, 2)| are both valid, where \lstinline|a| is an instance of class \lstinline|A|. These two calls must also be valid if they were invoked on any instance of a subclass of \lstinline|A|. So if class \lstinline|B| overrides method \lstinline|g|, the maximum number of required arguments it can have is one, and the minimum number of total arguments it can have is two (ignoring the first \lstinline|self| receiver argument).\\
 
 Formally, if the number of required arguments and arguments with default values in the super class are \lstinline|a| and \lstinline|b| respectively, and those of the subclass are \lstinline[mathescape]|a$'$| and \lstinline[mathescape]|b$'$|, then the following conditions must hold:
 \begin{lstlisting}[mathescape]
@@ -946,10 +946,10 @@ a$'$ $\leq$ a
 a$'$ + b$'$ $\geq$ a + b
 \end{lstlisting}
 
-In the presence of multiple inheritance, if a method exists in more than one super class, then the overriding methods must satisfy the variance conditions above with the methods in all the super classes, because the subclass instance can be used where any instance of the super classes is expected. For example, if a class \lstinline|A| extends both classes \lstinline|B| and \lstinline|C|, then an instance of \lstinline|A| can be used where an instance of \lstinline|B| or \lstinline|C| is expected.
+In the presence of multiple inheritance, if a method exists in more than one super class, then the overriding methods must satisfy the variance conditions above with the methods in all the super classes, because the subclass instance can be used where an instance of any of the super classes is expected. For example, if a class \lstinline|A| extends both classes \lstinline|B| and \lstinline|C|, then an instance of \lstinline|A| can be used where an instance of \lstinline|B| or \lstinline|C| is expected.
 
 \subsubsection{More on Multiple Inheritance}
-Supporting multiple inheritance comes with a lot of scenarios to consider. One of them is the call to \lstinline|super()|. The function \lstinline|super| calls the next method in the method resolution order. So a \lstinline|super| call in a certain method can refer to many different method, depending on from where this call is originating. See the following example:
+Supporting multiple inheritance comes with a lot of scenarios to consider. One of them is the call to \lstinline|super()|. The function \lstinline|super| calls the next method in the method resolution order. So a \lstinline|super| call in a certain method can refer to many different methods, depending on from where this call is originating. See the following example:
 \begin{lstlisting}
 class A:
 	def f(self): ...
@@ -967,9 +967,9 @@ class D(B, C):
 		return super().f()
 \end{lstlisting}
 
-If asked which class \lstinline|super| in the the method \lstinline|f| in class \lstinline|B| is referring to, the most intuitive answer is class \lstinline|A|. However, this is not always the case. If the \lstinline|super| call originated from method \lstinline|f| in class \lstinline|D|, and as we just discussed, the \lstinline|super| call refers to the next method in the MRO. Class \lstinline|D| has the linearization \lstinline|[D, B, C, A]|. So the super in \lstinline|D| will refer to \lstinline|B|, and that in \lstinline|B| refers to \lstinline|C|, which is counter-intuitive. This makes the inference for the \lstinline|super| call very complicated, since the super-methods may have different number of arguments or may even not exist. Assume that the class \lstinline|C| did not have the function \lstinline|f|, then calling \lstinline|super| from \lstinline|f| in class \lstinline|B| would still be fine since it may refer to \lstinline|f| in class \lstinline|A|, and such resolution is not always possible to be statically resolved.\\
+If asked which class \lstinline|super| in the the method \lstinline|f| in class \lstinline|B| is referring to, the most intuitive answer is class \lstinline|A|. However, this is not always the case. The \lstinline|super| call might have originated from method \lstinline|f| in class \lstinline|D|, and as we just discussed, the \lstinline|super| call refers to the next method in the MRO. Class \lstinline|D| has the linearization \lstinline|[D, B, C, A]|. So the super in \lstinline|D| will refer to \lstinline|B|, and that in \lstinline|B| refers to \lstinline|C|, which is counter-intuitive. This makes the inference for the \lstinline|super| call very complicated, since the super-methods may have different number of arguments or may even not exist. Assume that the class \lstinline|C| did not have the function \lstinline|f|, then calling \lstinline|super| from \lstinline|f| in class \lstinline|B| would still be fine since it may refer to \lstinline|f| in class \lstinline|A|, and such resolution is not always possible to be statically resolved.\\
 
-Another tricky case that comes with multiple inheritance is to decide which data attributes to inherit. See the following example:
+Another tricky case that comes with multiple inheritance is to decide on which data attributes to inherit. See the following example:
 
 \begin{lstlisting}
 class A:
@@ -999,7 +999,7 @@ Having explained the inference for class and function definitions, we are now re
 \subsubsection{Function Calls}
 Whenever a \lstinline|Call| node is encountered, the type of the called construct is inferred in the current context, and then the following axioms are generated:
 \begin{itemize}
-	\item If \lstinline|a| denotes the number of arguments in the function call, \lstinline|b| denotes the number of argument in the called function and \lstinline|c| denotes the number of default arguments in this function, then the following condition must hold
+	\item If \lstinline|a| denotes the number of arguments in the function call, \lstinline|b| denotes the number of arguments in the called function and \lstinline|c| denotes the number of default arguments in this function, then the following condition must hold:
 	\begin{lstlisting}[language=, mathescape]
 		a $\leq$ b
 		b - a $\leq$ c
@@ -1056,7 +1056,7 @@ def f(x: T) -> List[T]: ...
 a = f(2)
 \end{lstlisting}
 
-The function \lstinline|f| takes an argument and returns a list of elements which have the type of this argument. The argument must be either of type \lstinline|int| or \lstinline|str|. At first, the generic type variable \lstinline|T| is saved in the annotation resolver. Then when the function call \lstinline|f(2)| is reached during the type inference traversal, an empty dictionary for the type variable mapping is created. Now the unification algorithm starts. When we check the arguments, we begin to resolve the type annotation in the function definition. At the first argument \lstinline|x: T|, it is the first time to encounter the type variable \lstinline|T|, so a new Z3 constant is created and is added to the map, then the axiom for the type variable possibilities is added to this constant:
+The function \lstinline|f| takes an argument and returns a list of elements which have the same type as this argument. The argument must be either of type \lstinline|int| or \lstinline|str|. At first, the generic type variable \lstinline|T| is saved in the annotation resolver. Then when the function call \lstinline|f(2)| is reached during the type inference traversal, an empty dictionary for the type variable mapping is created. Now the unification algorithm starts. When we check the arguments, we begin to resolve the type annotation in the function definition. At the first argument \lstinline|x: T|, it is the first time to encounter the type variable \lstinline|T|, so a new Z3 constant is created and is added to the map, then the axiom for the type variable possibilities is added to this constant:
 \begin{lstlisting}
 Or(
 	t_z3_const == int,
@@ -1181,10 +1181,10 @@ context = {
 \end{lstlisting}
 So when the attribute access \lstinline|X.y| is encountered, we know that \lstinline|X| is a module context, so we infer the type of the expression \lstinline|y| in the context of the module \lstinline|X|. \\
 
-Similar to functions with generic type variables, treating this kind of \lstinline|import| statement apart from Z3 prevents the programmer of using the imported modules as first-class object. The only way to use the imported module is by accessing its contents directly.
+Similar to functions with generic type variables, treating this kind of \lstinline|import| statements apart from Z3 prevents the programmer of using the imported modules as a first-class object. The only way to use the imported module is by accessing its contents directly.
 
 \subsubsection{\lstinline|from module import ...|} 
-This kind of \lstinline|import| is different from the previous one is that its context is not saved into the context of the importing module, but a merging of both contexts takes place. For example:
+This kind of \lstinline|import| is different from the previous one in that its context is not saved into the context of the importing module, but a merging of both contexts takes place. For example:
 \begin{lstlisting}
 from X import A, B
 \end{lstlisting}
@@ -1209,12 +1209,7 @@ After all the constraints from the program inference are collected, the Z3 solve
 \subsection{Typed AST}
 The typed AST is a normal AST in which all the function definitions are fully type-annotated, and all the variables that appear as an assignment target are annotated.
 
-%PEP 484 \cite{484} introduced the syntax for type annotations. However, it is mostly concerned with function annotations. It suggests added type comments to indicate the types of normal variables in the program.
-\begin{lstlisting}
-x = []  # type: List[int]
-\end{lstlisting}
-
-PEP 526 \cite{526} introduced a new syntax for annotation variables. It was integrated into Python starting from Python 3.6. This syntax only works with single assignment statements, such that tuple/list assignments or assignments with multiple targets are not supported.
+PEP 526 \cite{526} introduced a new syntax for annotating variables. It was integrated into Python starting from Python 3.6. This syntax only works with single assignment statements, such that tuple/list assignments or assignments with multiple targets are not supported.
 
 \begin{lstlisting}
 x: List[int] = []  # valid
@@ -1309,4 +1304,33 @@ It is impossible to satisfy the constraints generated by the above program becau
 	\item Array indexing in line 2
 \end{itemize}
 
-A more advanced error reporting would try to give types to the rest of the program except the conflicting lines. However, this is not easy as it seems because everything else in the program might depend on the lines generating the conflicting axioms. This advanced error reporting is not implemented yet, but its research is in progress.
+A more advanced error reporting would try to give types to the rest of the program except the conflicting lines. However, this is not as easy as it seems because everything else in the program might depend on the lines generating the conflicting axioms. This advanced error reporting is not implemented yet, but its research is in progress.
+
+\section{Implementation Overview}
+We give here an overview of the implementation, and how the type inference components are pipelined. The following listing represents the life cycle of our type inference algorithm:
+
+\begin{enumerate}
+	\item The path to input program is given to the inference runner.
+	\item The inference runner parses the program and generates its AST.
+	\item The inference runner creates the Z3 Solver.
+	\item The solver creates the pre-analyzer which traverses the AST and gives the discussed analysis back.
+	\item The solver creates the stubs handler, which, given the pre-analysis, organizes and prepares all the relevant stubs.
+	\item The solver creates the \textit{type sort} data-type, which in terms instantiates all the required constructors and subtype axioms according to the pre-analysis.
+	\item The solver creates and prepares the annotation resolver, which is used during the type inference to translate any encountered type annotation to the relevant \textit{type sort} constructor.
+	\item The inference runner creates the global context for the program.
+	\item The inference runner then performs a depth-first traversal for the program AST and begins the inference for the program statements and expressions as explained in the inference rules.
+	\item The Z3 axioms collected from the program semantics are given to the Z3 solver which tries to find a satisfying model.
+	\item If the axioms are satisfiable, the model is generated and construction of the typed AST takes place. Otherwise, the \textit{unsat core} messages of the conflicting axioms are printed.
+\end{enumerate}
+
+Figure \ref{fig:ti_comp} shows how the components of the type inference interact with each other.
+
+\begin{figure}
+	\centering
+	\begin{mdframed}
+		\centering
+		\includegraphics[width=130mm]{images/TI_comp.eps}\\
+	\end{mdframed}
+	\caption{Components of the Type Inference}
+	\label{fig:ti_comp}
+\end{figure}
