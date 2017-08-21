@@ -2,7 +2,7 @@
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 
 \chapter{Type Inference}\label{chapter:ti}
-The previous chapter discusses the encoding of the type system in Z3. In this chapter, we explain how we build upon this encoding to provide a complete implementation for the static type inference.
+The previous chapter discusses the encoding of the type system in Z3. In this chapter, we explain how we build upon this encoding to provide a complete implementation for the static type inference. There are two phases for the type inference: constraints collection and constraints solving. In the phase of constraints collection, we traverse the input program, and generate constraints from the program constructs according to the type system. In the phase of constraints solving, we give the collected constraints to the SMT solver. If these constraints are satisfiable, a model is given in which a type is assigned to each variable in the program. Otherwise, the SMT solver reports the reason for the unsatisfiability. We discuss the methodology for constraints collection and constraints solving in this chapter.
 
 \section{Type Inference Design}
 We present here the main components of our type inference tool.
@@ -50,9 +50,9 @@ A.y  # invalid
 	
 	Class-level attributes are detected by the pre-analyzer whenever it encounters an assignment statement in the top-level scope of the class in which the left-hand side is a normal variable.
 	
-	Instance-level attributes are recognized whenever they are assigned by accessing the first argument in the class methods, like accessing \lstinline|self| argument in the above example.
+	Instance-level attributes are recognized whenever they are assigned by accessing the first argument in the methods, like accessing \lstinline|self| argument in the above example. The inference can be pre-configured to only detect instance-level attributes that are defined within the \lstinline|__init__| method. This kind of configurations is explained in \ref{sub:config}
 	
-	Note that class-level attributes represent a subset of the instance-level attributes, that is every instance of a certain class can access any class-level attribute. However, instance-level attributes cannot be accessed by the class type itself.
+	Note that as far as the type inference is concerned, class-level attributes represent a subset of the instance-level attributes, that is every instance of a certain class can access any class-level attribute. However, instance-level attributes cannot be accessed by the class type itself.
 	
 	\item A mapping from all user-defined classes to their base classes if they have any.
 	\item The inheritance DAG which is used to generate the subtyping constraints discussed in the previous chapter.
@@ -60,7 +60,7 @@ A.y  # invalid
 
 In addition to the above information, the pre-analyzer also does the following pre-processing to the user-defined classes:
 \begin{itemize}
-	\item Adds a default \lstinline|__init__| method to classes which do not contain one.
+	\item Adds a default \lstinline|__init__| method to classes which neither contain nor inherit one.
 	
 	This default \lstinline|__init__| method has the following form:
 	\begin{lstlisting}
@@ -111,9 +111,9 @@ for i in x:
 y = [i + 1 for i in x]
 \end{lstlisting}
 \subsection{Z3 Solver}
-The Z3 solver is the main component in the type inference design. It is responsible for solving all the constraints imposed by the Python program semantics, or report that they are impossible to be satisfied.
+The Z3 solver is the main component in the type inference design. It is responsible for solving all the constraints imposed by the Python program semantics, or report that they are unsatisfiable.
 
-We extend the default solver in Z3, such that during the instantiation of every solver instance, the following takes place:
+We extend the solver class of the Z3 Python interface, such that during the instantiation of every solver instance, the following takes place:
 
 \begin{itemize}
 	\item The pre-analysis defined above in processed.
@@ -126,11 +126,11 @@ At the end of the program inference, this solver is queried for a solution to al
 \subsection{Import Handler}
 As the name suggests, the import handler is responsible for handling module importing during the type inference.
 
-If the imported module is a built-in Python package, it retrieves the module from the corresponding stub file and infers the types of its contents, otherwise, it reads the imported module from the disk and infers its types in a separate context.\\
+If the imported module is a built-in Python package, it retrieves the module from the corresponding stub file and stores the types of its contents in the appropriate context, otherwise, it reads the imported module from the disk and runs the inference algorithm to infer its types in a separate context, but within the same SMT problem.\\
 
 We will discuss later in this chapter different types of import statements in Python and how they are handled in our type inference.
 \subsection{Stubs Handler}
-As discussed earlier, \textbf{stubs} are files containing code which simulates built-in functionalities. A \textbf{stub function} is a function declaration which mocks some other function. The following function is a stub function which mocks the built-in function \lstinline|len|:
+As discussed earlier, \textbf{stubs} are files containing code which simulates other functionalities, like built-ins or low level code. A \textbf{stub function} is a function declaration which mocks some other function. The following function is a stub function which mocks the built-in function \lstinline|len|:
 
 \begin{lstlisting}
 def len(_: object) -> int:
@@ -145,7 +145,7 @@ PEP 3107 \cite{3107} introduced the ability to add function type annotations, wh
 For example, the type annotation \lstinline|List[int]| is translated to \lstinline|type_sort.list(type_sort.int)|.\\
 
 We will explain how these type annotations are useful in the type inference when we get to the inference of function definitions.
-\subsection{Inference Configuration}
+\subsection{Inference Configuration}\label{sub:config}
 The user of the type inference has the ability to control the behavior of the type inference according to some pre-defined configurations. Each configuration is expected to have its gain and limitation. Some configurations, for instance, lead to a significant increase in the inference speed, yet at the cost of rejecting a larger set of correct programs. We will discuss the current possible configurations when we get to the rules related to these configurations.
 \subsection{Hard Constraints vs. Soft Constraints}
 An important addition to our type inference was introducing the ability to add soft constraints. \textbf{Hard constraints} are the constraints that \textbf{must} be satisfied by the program, such that if at least one hard constraint cannot be satisfied, the program is rejected and cannot type. On the other hand, \textbf{soft constraints} are those that are good to be satisfied, but they are not obligatory, such that a program violating some soft constraints is not rejected by the type inference. See the following example for illustration:
@@ -156,7 +156,7 @@ def f(x):
 	return y[x]
 \end{lstlisting}
 
-Here, the array \lstinline|y| is indexed with variable \lstinline|x|. Therefore, the type of \lstinline|x| \textbf{must} be a subtype of \lstinline|int|, so a program in which the type of \lstinline|x| violates this constraint (e.g., having \lstinline|x| as a float) would be rejected. The constraint in this case is a hard one. Another hard constraint is added in the assignment statement \lstinline|y = [1, 2, 3]|, that the type of the array literal \lstinline|[1, 2, 3]| is a subtype of the type of variable \lstinline|y|. Moreover, a soft constraint is added that both the type of the array literal and the type of \lstinline|y| are the same. Without this soft constraint, the type of \lstinline|y| in the model given by Z3 might be an \lstinline|object|, or any super type of the right-hand side (which is correct and sound, but not very accurate). So the purpose of the hard constraints is to provide a sound type inference, while that of the soft constraints is to increase its accuracy.
+Here, the list \lstinline|y| is indexed with variable \lstinline|x|. Therefore, the type of \lstinline|x| \textbf{must} be a subtype of \lstinline|int|, so a program in which the type of \lstinline|x| violates this constraint (e.g., having \lstinline|x| as a float) would be rejected. The constraint in this case is a hard one. Another hard constraint is added in the assignment statement \lstinline|y = [1, 2, 3]|, that the type of the array literal \lstinline|[1, 2, 3]| is a subtype of the type of variable \lstinline|y|. Moreover, a soft constraint is added that both the type of the list literal and the type of \lstinline|y| are the same. Without this soft constraint, the type of \lstinline|y| in the model given by Z3 might be an \lstinline|object|, or any too general super type of the right-hand side (which is correct and sound, but not very accurate). So the purpose of the hard constraints is to provide a sound type inference, while that of the soft constraints is to increase its accuracy.
 \section{Type Inference Rules}
 Having explained the main components of the type inference, we are now ready to discuss the axioms added for every construct in the Python program.
 \subsection{Expressions Rules}
@@ -182,9 +182,9 @@ We present here the axioms that are generated by every expression in Python.
 \subsubsection{List and Set Literals}
 As discussed earlier, the elements of a single list or a set have to be homogeneous, that is all these elements have to be of the same type.
 
-So the elements type of a list (or a set) literal is the super type of all the list element.
+So the elements type of a list (or a set) literal is a super type of all the list element.
 
-Assuming a function \lstinline|infer| which takes the AST node of the expression and returns its inferred type, the inference of list literals is implemented as follows:
+Assuming a function \lstinline|infer| which takes the AST node of the expression and returns a Z3 uninterpreted constant which represents its type, the inference of list literals is implemented as follows:
 
 \begin{lstlisting}
 def infer(node):
@@ -201,13 +201,13 @@ def infer(node):
 	...
 \end{lstlisting}
 
-For example, the type of the list literal \lstinline|[1, 2.0, 3j]| is \lstinline|List[complex]|, since we assume \lstinline|complex| to be a super type of \lstinline|int| and \lstinline|float|.\\
+For example, the type of the list literal \lstinline|[1, 2.0, 3j]| can be \lstinline|List[complex]| or \lstinline|List[object]|, since we assume \lstinline|complex| to be a super type of \lstinline|int| and \lstinline|float| and every type is a subtype of \lstinline|object|. With the soft constraint added, the type is restricted to \lstinline|List[complex]|.\\
 
 The inference for sets is exactly the same after replacing the list z3 constructor with the set one.
 
 
 \subsubsection{Dictionary Literals}
-Similar to lists and sets, dictionaries should have homogeneous keys set and values set, and the type inferred for each of these sets is the super type of its elements. For example, the type inferred for the dictionary \lstinline|{1: "string", 2: 3.6}| is \lstinline|Dict[int, object]|, because \lstinline|object| is the common super type between \lstinline|str| and \lstinline|float|.
+Similar to lists and sets, dictionaries should have homogeneous keys set and values set, and the type inferred for each of these sets is a super type of its elements. For example, the type inferred for the dictionary \lstinline|{1: "string", 2: 3.6}| is \lstinline|Dict[int, object]|, because \lstinline|object| is the common super type between \lstinline|str| and \lstinline|float|.
 
 
 \subsubsection{Tuple Literals}
@@ -216,7 +216,7 @@ The type of the tuple includes information about the types of all its elements. 
 \subsubsection{Binary Operations}
 Binary operations are the operations which combine two expressions, called operands, to produce a result expression. The inference of binary operations in Python is not very straightforward because the result type from every operation depends on different combinations of the types of the operands. We discuss here the axioms generated for every binary operation supported by Python.\\
 
-\textbf{Addition (+)}
+\textbf{Addition (+)}:
 The addition operation is either a numeric addition or a sequence concatenation. For the numeric addition, the type of the result is the super type of the types of the operands. This is encoded in Z3Py as follows:
 
 \begin{lstlisting}
@@ -249,12 +249,25 @@ The listing below shows examples for the addition operation and their inferred t
 [1, 2, 3] + "a"  # Invalid
 \end{lstlisting}
 
-\textbf{Multiplication (*)}
+\textbf{Multiplication (*)}:
 Multiplication in Python, also without considering operator overloading, is either numeric multiplication or sequence repetition.
 
 Similar to addition, the result type of numeric multiplication is the super type of the types of the operands. In case of sequence repetition, one of the operands must be a subtype of \lstinline|int| and the other one should be the sequence. In all the sequences except tuples, the result type is the same as the sequence being multiplied. Ideally in case of tuples, the result is a tuple type with the argument types of the operand tuple repeated by the operand number. However, resolving the exact numeric value is impossible statically. Therefore, we consider the result of tuple multiplication to be the same type as the operand tuple. This is sound because no new types are introduced in the tuple arguments after multiplication, and as we will see shortly, any operation on tuple (e.g., indexing) does not care about the order of the types of the tuple elements. So the two tuple types \lstinline|Tuple[int, str]| and \lstinline|Tuple[int, str, int, str]| give the same output after applying any operation on the tuple.\\
 
-An important thing to notice in both addition and multiplication is that applying these operations on two \lstinline|bool| types results in an \lstinline|int| type. So this needs special handling during the axioms generation..
+An important thing to notice in both addition and multiplication is that applying these operations on two \lstinline|bool| types results in an \lstinline|int| type. So this needs special handling during the axioms generation. For instance, the addition axioms are enhanced as follows:
+\begin{lstlisting}
+Implies(
+	And(left == bool, right == bool),
+	result == int
+)
+
+Implies(
+	Not(And(left == bool, right == bool)),
+	Or(
+		# Addition axioms explained above
+	)
+)
+\end{lstlisting}
 
 \begin{lstlisting}
 3 * 4.0  # float
@@ -264,7 +277,7 @@ True * False  # int
 [1, 2] * 3.0  # invalid
 \end{lstlisting}
 
-\textbf{Division (/)} Division is only applicable on numeric types. The result is \lstinline|complex| if at least one of the operands is of \lstinline|complex| type, otherwise it is a float. Note that this is different from floor division (//).
+\textbf{Division (/)}: Division is only applicable on numeric types. The result is \lstinline|complex| if at least one of the operands is of \lstinline|complex| type, otherwise it is a float. Note that this is different from floor division (//).
 
 The axioms generated by a division operation are given below:
 
@@ -276,7 +289,7 @@ And(
 )
 \end{lstlisting}
 
-\textbf{Other Arithmetic Operations (-, //, **, \%)}
+\textbf{Other Arithmetic Operations (-, //, **, \%)}:
 The remaining arithmetic operations (subtraction, floor division, exponentiation, modulo operator) exhibit similar behavior in terms of type inference. They can only be applied on numeric types and the result type is the super type of the types of the operands. \\
 
 There is a single special case to consider in the modulo operator (\%). In addition to giving the division remainder, it can also be used in string formating. Therefore, a disjunction is added to the axioms in this case that the left operand is a \lstinline|str| type without restricting the right operand.
@@ -285,7 +298,7 @@ There is a single special case to consider in the modulo operator (\%). In addit
 "A string which contains a number %i}" % 1
 \end{lstlisting}
 
-\textbf{Bitwise Binary Operations (\&, \textrm{\^}, |, <<, >>)}
+\textbf{Bitwise Binary Operations (\&, \textrm{\^}, |, <<, >>)}:
 Bitwise operations can only be applied on subtypes of \lstinline|int| types (\lstinline|int| and \lstinline|bool|). The result is \lstinline|int| in all cases except when we apply \&, \textrm{\^} or | on two \lstinline|bool| types, where in such case the result is \lstinline|bool|.
 
 \subsubsection{Unary Operations}
@@ -306,11 +319,32 @@ In Python, every object can be tested for truth value, where each object can eva
 	\item \lstinline|None|
 	\item \lstinline|False|
 	\item Zero numeric value: 0, 0.0, 0j
-	\item Any object which has \lstinline|__len__| method which returns a zero.
+	\item Empty collections: [], {}, ()
+	\item Any object which has \lstinline|__len__| method which returns a zero or \lstinline|__bool__| method which returns \lstinline|False|.
 \end{itemize}
 Any other object has a \lstinline|True| truth value. \\
 
-The result type from a boolean operation is not simple to infer, since it totally depends on the values that the operands carry during runtime, and these values are impossible to be statically resolved. Specifically, the \lstinline|and| operator keeps evaluating the operands until an operand with a \lstinline|False| truth value is encountered. \lstinline|or| operator does the opposite. See the following example for illustration:
+The result from \lstinline|and| operator is the first operand which has a \lstinline|False| truth value. If all the operands have \lstinline|True| values, then the result is the last operand. On the other hand, the result of \lstinline|or| operator is the first operand which has a \lstinline|True| truth value, or the last one if all have \lstinline|False| truth values.
+
+\begin{lstlisting}
+x = 1 and "str"
+>>> x
+"str"
+
+x = 0 and "str"
+>>> x
+0
+
+x = 1 or "str"
+>>> x
+1
+
+x = 0 or "str"
+>>> x
+"str"
+\end{lstlisting}
+
+The result type of a boolean operation is not simple to infer, since it totally depends on the values that the operands carry during runtime, and these values are impossible to be statically resolved. Specifically, the \lstinline|and| operator keeps evaluating the operands until an operand with a \lstinline|False| truth value is encountered. \lstinline|or| operator does the opposite. See the following example for illustration:
 \begin{lstlisting}
 a = function_which_returns_int()
 b = function_which_returns_string()
@@ -321,12 +355,12 @@ y = a or b
 
 If \lstinline|a| has a zero value during runtime, then the type of \lstinline|x| will be the same as \lstinline|a|, which is \lstinline|int|, otherwise it will be \lstinline|str|. Conversely, \lstinline|y| will have type \lstinline|str| if \lstinline|a| has a zero value, otherwise it will have an \lstinline|int| type.
 
-As mentioned, the values of \lstinline|a| and \lstinline|b| are impossible to be statically resolved. Therefore, the type of the result from a boolean operation is inferred to be the common super type between its operands.
+As mentioned, the values of \lstinline|a| and \lstinline|b| are impossible to be statically resolved. Therefore, the type of the result of a boolean operation is inferred to be the common super type between its operands.
 
-So the result from \lstinline|1 and 2.0| is \lstinline|float| and from \lstinline|1 and "str"| is \lstinline|object|.
+So the result of \lstinline|1 and 2.0| is \lstinline|float| and of \lstinline|1 and "str"| is \lstinline|object|.
 
 \subsubsection{If (Conditional) Expression}
-With an if expression, conditional statements can be written as one statement which returns a value depending on whether a certain condition is true or false.
+An if expression is an expression whose value depends on whether a certain condition is true or false.
 \begin{lstlisting}
 x = A if some_condition else B
 \end{lstlisting}
@@ -338,7 +372,7 @@ else:
 	x = B
 \end{lstlisting}
 
-The inferred type for the if expression value is the common super type of the types of the true (A) and the false (B) values.
+The type of the if expression value is the common super type of the types of the true (A) and the false (B) values.
 
 \subsubsection{Subscripts}
 Subscript literals in Python are any literals which end in square brackets containing some expression. For example, all the following are subscript literals:
@@ -361,7 +395,9 @@ In our type system, only strings (and byte strings), lists, dictionaries and tup
 	\item For dictionaries, the index type should be the same as the inferred type of the dictionary keys, and the result type is the type of the dictionary values.
 \end{itemize}
 
-As for \textbf{sliced} subscripts, only strings, lists and tuples support slicing. The slicing keys must be a subtype of \lstinline|int|. The result type from slicing is the same as the sliced object. For the same reason stated above, slicing the tuple results in the same tuple type because resolving the slicing ends is impossible statically. This is also sound because any operation applied on the result from slicing a tuple should be compatible with every element type in the original tuple.
+Disjunctions for all the above possibilities are added whenever an index subscript is encountered during the inference traversal. \\
+
+As for \textbf{sliced} subscripts, only strings, lists and tuples support slicing. The slicing keys must be a subtype of \lstinline|int|. The result type from slicing is the same as the sliced object. For the same reason stated above, slicing the tuple results in the same tuple type because resolving the slicing ends is impossible statically. This is also sound because any operation applied on the result of slicing a tuple should be compatible with every element type in the original tuple.
 
 \subsubsection{Comprehensions}
 Comprehensions are constructs which enable the programmer to create lists, sets or dictionaries in a natural and elegant way from any other iterable object.
@@ -379,9 +415,23 @@ x = {i * i | i $\in$ y}
 
 The expression \lstinline|i in y| in the above example is called a \textit{generator expression} while the expression \lstinline|i * i| is called the comprehension element.
 
-The inference for comprehensions works by creating a local context for the generator, and inferring the generator target (\lstinline|i| in the example above) in this local context according to the generator iterable (\lstinline|y|). Then by having the target inferred in the local context, the type of the comprehension element can be inferred by applying the expressions inference rules on it.
+The inference for comprehensions works by creating a local context for the generator, and inferring the generator target (\lstinline|i| in the example above) in this local context according to the generator iterable (\lstinline|y|). Then by having the Z3 constant corresponding to type of the target in the local context, the type of the comprehension element can be inferred by generating the expressions constraints explained above.
 
-For the example above, assuming the type of \lstinline|y| is inferred to be \lstinline|List[int]|, then the type of \lstinline|i| is inferred as \lstinline|int| in the local context of the generator expression. Then the type of the set elements is inferred from the multiplication inference rules explained above: \lstinline|int * int := int|. So the comprehension result will have a result of \lstinline|Set[int]|. \\
+For the example above, assuming the type of \lstinline|y| is constrained to be \lstinline|List[int]|, then the type of \lstinline|i| is inferred as \lstinline|int| in the local context of the generator expression. Then the type of the set elements is inferred from the multiplication inference rules explained above: \lstinline|int * int := int|. So the comprehension result will have a result of \lstinline|Set[int]|. Assuming that \lstinline|x| is the z3 constant representing the type of the iterable in the generator expression and \lstinline|y| represents the type of the generator target, the following axion is generated during the inference of the generator expression:
+\begin{lstlisting}
+And(
+	subtype(x, iterable(y))
+)
+\end{lstlisting}
+
+Now the local context of the comprehension is as follows:
+\begin{lstlisting}
+context = {
+	'i' : y
+}
+\end{lstlisting}
+
+Then the multiplication axioms are added on the type of the variable \lstinline|i|. \\
 
 Moreover, the generator expressions can be chained (nested). See the following example for illustration:
 
@@ -393,7 +443,7 @@ x = [[1, 2, 3],
 y = [i for j in x for i in j]
 \end{lstlisting}
 
-The array \lstinline|y| contains the array \lstinline|x| after flattening all its inner arrays (\lstinline|[1, 2, 3, 4, 5, 6, 7, 8, 9]|). The inference for chained generators works by inferring the generator targets in the order they appear in the comprehension. So the type of \lstinline|j| in the above example is inferred to be \lstinline|List[int]| (because \lstinline|x| is \lstinline|List[List[int]]|), and the type of the second generator target \lstinline|i| (which is also the comprehension element) is inferred to be \lstinline|int|, and the type of y is then \lstinline|List[int]|.
+The list \lstinline|y| contains the list \lstinline|x| after flattening all its inner lists (\lstinline|[1, 2, 3, 4, 5, 6, 7, 8, 9]|). The inference for chained generators works by inferring the generator targets in the order they appear in the comprehension. So after solving all the constraints, the type of \lstinline|j| in the above example is inferred to be \lstinline|List[int]| (because \lstinline|x| is \lstinline|List[List[int]]|), and the type of the second generator target \lstinline|i| (which is also the comprehension element) is inferred to be \lstinline|int|, and the type of y is then \lstinline|List[int]|.
 
 In addition to generators chaining, the comprehension itself can be nested.
 \begin{lstlisting}
@@ -421,7 +471,7 @@ The context contains a mapping from variable names to the Z3 constants that repr
 The variables are stored in the context in the assignment statements, function definitions or class definitions. The inference for these constructs are explained in the upcoming sections.
 
 \subsection{Statements Axioms}
-A statement is a complete instruction that can be executed by the Python interpreter. It is a complete line of code that performs a certain action. Note that every expression on its own is also a statement.
+A statement is a complete instruction that can be executed by the Python interpreter. It is a complete line of code that performs a certain action. Note that every expression written alone in a separate line of code is also a statement.
 
 We explain here how the inference of different statements in our type system works.
 
@@ -526,7 +576,7 @@ In the function \lstinline|g|, all the body statements have a \lstinline|None| t
 \subsubsection{Control-Flow Statements}
 A control-flow statement is the statement which results in a choice being made between two or more paths to follow. The inference for these kind of statements is tricky because the way the types in the context are affected depends on which path was taken, which is not always possible to be statically resolved. We present here how the axioms generated by the control-flow statements in Python, and how the context is affected by the paths choice. \\
 
-There are three variants of control-flow statements in Python: \lstinline|if| statements, \lstinline|for| loops and \lstinline|while| loops. However, the axioms generated by these axioms are the same, except that an additional axiom for the loop variable is generated in the case of \lstinline|for| loops. \\
+There are three variants of control-flow statements in Python: \lstinline|if| statements, \lstinline|for| loops and \lstinline|while| loops. However, the axioms generated by these statements are the same, except that an additional axiom for the loop variable is generated in the case of \lstinline|for| loops. \\
 
 Each control-flow statement has a required body block and an optional else block, and a separate local context is created for each. If one branch introduces a new variable, it will only be added to the parent context (which contains the control-flow statement) if the other branch also defines this variable. This prevents attempting to use a variable which might have not been defined. See the following example for illustration:
 

@@ -278,6 +278,8 @@ As mentioned before, our inference tool is based on a static type system that we
 	\item A variable should have a single type in the whole program.
 	\item Dictionaries map a set of keys of the same type to a set of values of the same type.
 	\item Elements in list or a set should have the same type.
+	
+	Note that elements in sets, lists and dictionaries are allowed to have different runtime type. However during the type inference, we should be able to give them the same static type which allows any operation performed on any of these elements.
 	\item Using reflective or introspective properties of Python is not allowed.
 	\item Modifying global variables using \lstinline|global| keyword is not supported.
 	\item It is not possible to dynamically create and infer modules during runtime.
