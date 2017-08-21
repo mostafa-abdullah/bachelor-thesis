@@ -2,12 +2,12 @@
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 
 \chapter{Type System Encoding in Z3}\label{chapter:ts}
-As mentioned earlier, we depend primarily on Z3 to provide a model in which a type is assigned to each construct in the Python program which satisfies the imposed constraints from the program semantics. In order to have such kind of constraints, the types of the type system are simulated using Z3 data-types, while the rules governing the subtype relationships in this type system are encoded with Z3 uninterpreted functions. We explain in this chapter the encoding of these types and rules in Z3.
+As mentioned earlier, we depend primarily on Z3 to provide a model in which a type is assigned to each construct in the Python program which satisfies the constraints imposed by the type system. In order to have such kind of constraints, the types of the type system are simulated using Z3 data-types, while the rules governing the subtype relationships in this type system are encoded with Z3 uninterpreted functions. We explain in this chapter the encoding of these types and rules in Z3.
 \section{Types Encoding}
 A Python type is encoded in Z3 with a data-type declaration, which we call \textit{type sort}. From this data-type, multiple constructors are declared, each representing a corresponding type in the Python type system.\\
 
 \subsection{Built-ins}
-Most built-in types are trivially declared with a \textit{type sort} constructor. Below is a listing, written in Z3Py, of some types declarations from the \textit{type sort} data-type.
+Most built-in types are simply declared with a \textit{type sort} constructor. If a built-in type is composed of other one or more types (e.g., lists, dictionaries, etc.), accessor arguments representing these types are declared within the constructor declaration. Below is a listing, written in Z3Py, of some types declarations from the \textit{type sort} data-type.
 
 \begin{lstlisting}[language=python]
 type_sort = Datatype("type sort")
@@ -32,11 +32,11 @@ type_sort = type_sort.create()
 Notice that after defining all the constructors, we call the \lstinline|create()| method to declare the actual data-type itself that we will be using in the inference. For this reason, all the types constructors have to be available before attempting to infer the program types. This introduces the need to perform some pre-analysis for the program being inferred to get knowledge of the types that are naturally not available before inspecting the source code. We will discuss these types in the upcoming sections.
 
 \subsection{Functions and Tuples}
-One thing that is not straightforward to encode is types that consist of a collection of other types, like tuples or functions, since tuples and function arguments may have arbitrary length.
+One thing that is not straightforward to encode is types that consist of a collection of other types, like tuples or functions, since tuples and function arguments may have arbitrary number of elements.
 
-Unfortunately, Z3 does not currently support combining data-type declarations with arrays or sets. To work around this limitation, we do a pre-analysis of the whole input program which provides all possible lengths of tuples and the arguments of a function that appear in the program, then we declare a separate constructor for every possible length of tuples and functions. Moreover, the user of the type inference himself has the ability to explicitly define the maximum number of function arguments and tuple elements without using the ones provided by the pre-analyzer.\\
+Unfortunately, Z3 does not currently support combining data-type declarations with arrays or sets. To work around this limitation, we perform a pre-analysis of the whole input program which provides the maximum length of tuples and the arguments of functions that appear in the program, then we declare a separate constructor for every possible length of tuples and functions. Moreover, the user of the type inference has the ability to explicitly define the maximum number of function arguments and tuple elements without using the ones provided by the pre-analyzer.\\
 
-Now having the maximum length of functions arguments and tuples elements, the types of functions and tuples can be encoded as follows:
+Now having the maximum length of functions arguments and tuples, the types of functions and tuples can be encoded as follows:
 
 \begin{lstlisting}[language=python]
 # Functions declaration
@@ -67,16 +67,14 @@ for cur_len in range(max_tuple_length + 1):
 A constructor is created for every length of functions and tuples, and accessor for each of their arguments is added to the corresponding constructor.
 
 \subsection{User-defined Types}
-Similarly, each user-defined type has its own constructor declaration from the \textit{type sort} data-type. However, since all the types constructors have to be available beforehand, we use the program pre-analyzer to provide a listing for all classes that are used in the whole program. Then a type constructor is created for each of these classes. 
+Similarly, each user-defined type has its own constructor declaration from the \textit{type sort} data-type. However, since all the types constructors have to be available before running the inference algorithm, we use the program pre-analyzer to provide a listing of all classes that are used in the whole program. Then a type constructor is created for each of these classes. 
 
 \begin{lstlisting}[language=python]
-all_classes = some_pre_analysis_function(program)
-
-for cls in all_classes:
+for cls in get_all_classes(program):
 	type_sort.declare("class_{}".format(cls))
 \end{lstlisting}
 
-Moreover, the pre-analyzer provides information about the methods and the attributes of these classes, then an uninterpreted constant is declared for each of these methods and attributes, and each class is mapped to the constants corresponding to its own attributes.
+Moreover, the pre-analyzer provides information about the methods and the attributes of these classes. An uninterpreted constant is declared for each of these methods and attributes, and each class is mapped to the constants corresponding to its own attributes.
 
 \begin{lstlisting}
 class_to_attrs = some_pre_analysis_function(program)
@@ -92,9 +90,9 @@ for cls in class_to_attrs:
 	    class_to_z3_consts[cls][attr] = attribute
 \end{lstlisting}
 
-Now the type system defined in the previous chapter is wholly encoded in Z3. Note that, and as discussed earlier, other built-in types are not mentioned here since they are inferred as user-defined types when they are encountered as class definitions in the stub files.\\
+Now the types of the type system defined in the previous chapter are encoded in Z3. Note that, and as discussed earlier, other built-in types are not mentioned here since they are inferred as user-defined types when they are encountered as class definitions in the stub files.\\
 
-It is worth mentioning that all the built-in types could be encoded as class definitions, since every type in Python 3 is a class definition. However, classes inference has significant costs in terms of performance. Therefore, it was more convenient to encode the most common built-in types, like \lstinline|int|, \lstinline|float|, etc., separately.
+It is worth mentioning that all the built-in types could be encoded the way user-defined class are encoded, since every type in Python 3 is a class definition. However, classes inference has significant costs in terms of performance. Therefore, it was more convenient to encode the most common built-in types, like \lstinline|int|, \lstinline|float|, etc., with separate constructors.
 
 \section{Subtyping Rules Encoding}
 Having explained the encoding of the types in Z3, we explain here how the subtype relationships between these types are encoded. The subtype relationships discussed in the previous chapter are encoded using an uninterpreted function \lstinline|subtype|, which takes two types, encoded in the \textit{type sort} data-type, as its arguments and returns a \lstinline|Bool| sort.
@@ -102,20 +100,36 @@ Having explained the encoding of the types in Z3, we explain here how the subtyp
 subtype = Function("subtype", type_sort, type_sort, BoolSort())
 \end{lstlisting}
 
-The encoding works by constructing an inheritance directed acyclic graph (DAG), such that each node in the DAG represents a type in the type system, and each edge from a node \lstinline|x| to a node \lstinline|y|, denoted by \lstinline|edge(x,y)|, indicates that type \lstinline|y| is a direct subtype of type \lstinline|x|. Then using the information deduced from the DAG, the axioms for the subtyping are generated using the \lstinline|subtype| function defined above according to the following conditions:
+The encoding works by constructing a directed acyclic graph (DAG) representing the inheritance, such that each node in the DAG represents a type in the type system, and each edge from a node \lstinline|x| to a node \lstinline|y|, denoted by \lstinline|edge(x,y)|, indicates that type \lstinline|y| is a direct subtype of (inherits from) type \lstinline|x|. Then using the information deduced from the DAG, the axioms for the subtyping are generated using the \lstinline|subtype| function defined above according to the following conditions:
 \[
-	reachable(x,y) = \left\{
+	subtype(x,y) = \left\{
 	\begin{array}{@{}l@{\thinspace}l}
-	True & : x == y \lor edge(x, y) \lor \exists z : edge(x, z) \land reachable(z, y) \\
+	True & : x == y \lor edge(y, x) \lor \exists z : edge(y, z) \land subtype(x, z) \\
 	False & : otherwise\\
 	
 	\end{array}
 	\right.
 \]
 
-\[
-	\forall x,y : reachable(x,y) == subtype(y, x)
-\]
+Such that for every type, disjunctions for its super classes and sub classes are added to the Z3 solver. For example, the following disjunctions are added for the \lstinline|int| type:
+
+\begin{lstlisting}
+ForAll(x, subtype(x, int) == 
+	Or(
+		x == bool,
+		x == int
+	)
+)
+
+ForAll(x, subtype(int, x) == 
+	Or(
+		x == int,
+		x == float,
+		x == complex,
+		x == object
+	)
+)
+\end{lstlisting}
 
 Figure \ref{fig:dag} shows a subgraph of the constructed DAG with a subset of the subtype relationships between built-in types.
 
@@ -155,7 +169,12 @@ Figure \ref{fig:dag} shows a subgraph of the constructed DAG with a subset of th
 \subsection{Builtins with Generic Types}
 To generate the subtype axioms for types containing generics (e.g., lists, dicts and tuples), a universal quantification is performed over all possible types for the generics. The example below, in Z3Py syntax, shows the generated axiom for the subtype relationship between lists and \lstinline|object|:
 \begin{lstlisting}
-	ForAll([x, y], subtype(List(x), y) == (y == object))
+ForAll([x, y], subtype(List(x), y) ==
+	Or(
+		y == List(x)
+		y == object,
+	)
+)
 \end{lstlisting}
 
 \subsection{User-defined Types}
