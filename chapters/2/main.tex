@@ -212,7 +212,7 @@ Each programming language defines the rules for its type system, and the languag
 
 Type systems can be classified as structural type systems, nominal type systems or a hybrid of both. We explain both classes of type systems shortly.
 
-The process of verifying that the program satisfies the rules enforced by the language's type system is called \textit{type checking}. There are two types of type checking: \textit{static type checking} and \textit{dynamic type checking}. Accordingly, programming languages are divided to \textit{statically-typed} and \textit{dynamically-typed} languages according to the type checking they perform.
+The process of verifying that the program satisfies the rules enforced by the language's type system is called \textit{type checking}. There are two kinds of type checking: \textit{static type checking} and \textit{dynamic type checking}. Accordingly, programming languages are divided to \textit{statically-typed} and \textit{dynamically-typed} languages according to the type checking they perform.
 
 \subsection{Nominal and Structural Type Systems}
 In a \textbf{nominal type system}, equivalence of types comes from an explicit declaration, and one type \lstinline|a| is said to be subtype of another type \lstinline|b| if and only if \lstinline|a| is explicitly declared to be a subtype of \lstinline|b|. Examples of languages that use a nominal type system include: C++, Java, C\#, etc.\\
@@ -228,7 +228,9 @@ A x = A()
 B y = x
 \end{lstlisting}
 
-A nominal type system would reject the above program, because there is no explicit subtype relationship between classes \lstinline|A| and \lstinline|B|, so the variable \lstinline|x| of type \lstinline|A| cannot be assigned to the variable \lstinline|y| of type \lstinline|B|. However, a structural type system would allow it because the properties of the two classes are identical.
+A nominal type system would reject the above program, because there is no explicit subtype relationship between classes \lstinline|A| and \lstinline|B|, so the variable \lstinline|x| of type \lstinline|A| cannot be assigned to the variable \lstinline|y| of type \lstinline|B|. However, a structural type system would allow it because the properties of the two classes are identical. \\
+
+Python uses a structural type system. However in our type inference, we depend on a nominal type system that. We will define this type system in \ref{sub:st_ts_3}.
 
 \subsection{Static Type and Dynamic Type Checking}
 
@@ -236,7 +238,7 @@ A nominal type system would reject the above program, because there is no explic
 
 One benefit of static type checking is the early detection of type errors. Also, static typing contributes to the program readability and, as consequence, to its maintainability.
 
-The following Java example would be rejected at compile-time:
+The following erroneous Java program would be rejected at compile-time:
 \begin{lstlisting}[language=java]
 int x = 1
 String y = "string"
@@ -244,9 +246,9 @@ String y = "string"
 x += y
 \end{lstlisting}
 
-On the other hand, \textbf{dynamic type checking} is performed during runtime, where each object gets assigned to its type during the program execution. One of the advantages of dynamically-typed languages over the statically typed ones is that programs tend to be simpler and more flexible.
+On the other hand, \textbf{dynamic type checking} is performed during runtime, where each object gets assigned to its type during the program execution. One of the advantages of dynamically-typed languages over the statically typed ones is that programs tend to be more flexible and simpler in terms of the syntax and the code size.
 
-The following Python example would be rejected at run time:
+The following erroneous Python program would be rejected at run time:
 \begin{lstlisting}[language=python]
 x = 1
 y = "string"
@@ -255,7 +257,7 @@ x += y
 \end{lstlisting}
 
 \subsection{Subtyping}
-Subtyping is a feature which exists in most programming paradigms. It allows a form of \textit{substitution} principle, that is if a type A is a subtype of a type B, denoted by \lstinline|A <: B|, then any expression if type A can be safely used in any context where a type B is expected. The type system of each programming language defines its own subtyping rules.
+Subtyping is a feature which exists in most programming paradigms. It follows the \textit{substitution principle}, that is if a type A is a subtype of a type B, denoted by \lstinline|A <: B|, then any expression if type A can be safely used in any context where a type B is expected. The type system of each programming language defines its own subtyping rules.
 
 For example, in some programming languages, (e.g., Java), \lstinline|int <: float|, so an integer type can be used in any context where a floating-point type is expected. Therefore, the following Java method is valid according to the subtyping rules of the Java type system.
 
@@ -270,8 +272,8 @@ float sum = add(1, 2.5F)
 Method \lstinline|add| is expecting its two arguments to be of \lstinline|float| type, whereas an \lstinline|int| is passed as its first argument.
 
 
-\subsection{Static Type System for Python 3}
-As mentioned before, our inference tool is based on a static type system that we have defined for Python 3. Since we intend to provide inference for statically-typed Python code, some dynamic features of Python have to be omitted in our type system. Below is a listing of the limitations we imposed on the dynamic nature of Python:
+\subsection{Static Type System for Python 3}\label{sub:st_ts_3}
+As mentioned before, our inference tool is based on a static type system that we have defined for Python 3. Since we intend to provide inference for statically-typed Python code, some dynamic features of Python have to be rejected by our type system. Below is a listing of the limitations we imposed on the dynamic nature of Python:
 \begin{enumerate}
 	\item A variable should have a single type in the whole program.
 	\item Dictionaries map a set of keys of the same type to a set of values of the same type.
@@ -323,7 +325,7 @@ t = None | object | bool | int | float | complex | string | bytes
 
 Where \lstinline|t*| represents a collection of types of arbitrary length and \lstinline|T| represents an instance of a user-defined type.
 
-Note that most other built-in types belong to user-defined types domain, since they are inferred as normal user-defined classes from our stub files. Stub files contain functions and classes that simulate built-in functionalities. \\
+Note that most other built-in types belong to user-defined types domain, since they are inferred as normal user-defined classes from our stub files. Stub files contain functions and classes that simulate other functionalities like built-ins and low level code. \\
 
 The subtype relationships between the above types are defined by the following rules:
 
@@ -332,26 +334,27 @@ bool <: int
 int <: float
 float <: complex
 complex <: string
-t$_{i}$ <: t$^{`}_{i}$ : 1 <= i <= n $\rightarrow{}$ Tuple[t$_{1}$, .., t$_{n}$] <: Tuple[t$^{`}_{1}$, .., t$^{`}_{n}$]
+t$_{i}$ <: t$^{'}_{i}$ : 1 <= i <= n $\rightarrow{}$ Tuple[t$_{1}$, .., t$_{n}$] <: Tuple[t$^{'}_{1}$, .., t$^{'}_{n}$]
 
-t <: t$^{`}$ $\land$ t$^{`}_{i}$ <: t$_{i}$ : 1 <= i <= n $\rightarrow{}$
-	Callable[[t$_{1}$, .., t$_{n}$], t] <: Callable[[t$^{`}_{1}$, .., t$^{`}_{n}$], t$^{`}$]
+t <: t$^{'}$ $\land$ t$^{'}_{i}$ <: t$_{i}$ : 1 <= i <= n $\rightarrow{}$
+	Callable[[t$_{1}$, .., t$_{n}$], t] <: Callable[[t$^{'}_{1}$, .., t$^{'}_{n}$], t$^{'}$]
 	
 T <: U iff extends(T, U) $\lor$ $\exists$V: extends(T, V) $\land$ V <: U 
-	where extends(a, b) is True if class a explicitly extends class b,
-	and false otherwise
 	
 $\forall$t t <: object
 \end{lstlisting}
 
-Note that, and as mentioned earlier, there is not subtype relationship between \lstinline|int| and \lstinline|float| and between \lstinline|float| and \lstinline|complex| in the Python type system. However we claim this relationship for simplicity since these types are type-compatible with each other.\\
+where \lstinline|extends(a, b)| is True if class a explicitly inherits from class b,
+and False otherwise.
+
+Note that as mentioned earlier, there is not subtype relationship between \lstinline|int| and \lstinline|float| and between \lstinline|float| and \lstinline|complex| in the Python type system. However, for simplicity, we claim this relationship since these types are type-compatible with each other, so that we do not need to define special rules for numeric types which will be the same as the subtyping rules defined for other types.
 
 It is worth mentioning that the subtype relationship is both reflexive and transitive. Formally:
 
 
 \begin{center}
-	$\forall x$ \lstinline|subtype(x, x)| \\
-	$\forall x,y,z$ \lstinline|subtype(x, y)| $\land$ \lstinline|subtype(y,z)| $\rightarrow$ \lstinline|subtype(x,z)|
+	$\forall x$ \lstinline|x <: x| \\
+	$\forall x,y,z$ \lstinline|x <: y| $\land$ \lstinline|y <: z| $\rightarrow$ \lstinline|x <: z|
 \end{center}
 
 Although the above rules do not cover the whole Python type system, they are sufficient for most statically-typed Python programs. It remains to explain how we will build the type inference upon the above rules. In the next chapter, we will explain the encoding of all the above rules in Z3.
