@@ -162,7 +162,7 @@ def f(x):
 Here, the list \lstinline|y| is indexed with variable \lstinline|x|. Therefore, the type of \lstinline|x| \textbf{must} be a subtype of \lstinline|int|, so a program in which the type of \lstinline|x| violates this constraint (e.g., having \lstinline|x| as a float) would be rejected. The constraint in this case is a hard one. Another hard constraint is added in the assignment statement \lstinline|y = [1, 2, 3]|, that the type of the array literal \lstinline|[1, 2, 3]| is a subtype of the type of variable \lstinline|y|. Moreover, a soft constraint is added that both the type of the list literal and the type of \lstinline|y| are the same. Without this soft constraint, the type of \lstinline|y| in the model given by Z3 might be \lstinline|object|, or any too general super type of the right-hand side (which is correct and sound, but not very accurate). So the purpose of the hard constraints is to provide a sound type inference, while that of the soft constraints is to increase its accuracy.
 \section{Type Inference Rules}\label{sec:rules}
 Having explained the main components of the type inference, we are now ready to discuss the constraints added for every construct in the Python program.
-\subsection{Expressions Rules}
+\subsection{Expressions Rules}\label{sec:exp_rules}
 An \textit{expression} is any language construct that evaluates to a value. It can be a combination of one or more values, variables, operators and function calls. Every construct in Python that can be printed is an expression.
 
 Below are some examples of Python expressions:
@@ -1197,6 +1197,16 @@ ForAll([x, y], subtype(List(x), y) ==
 )
 \end{lstlisting}
 For user-defined classes, the type of generic in the iterable is unified with the return type of the \lstinline|__iter__| method which the class implements.
+
+\subsection{Operator Overloading}
+Similarly to interfaces, operator overloading adds structural functionalities to user-defined classes and are defined by implementing magic methods. However, they are not included into the interfaces because there are no equivalent definitions in the \lstinline|typing| module for the classes which implement (overload) these functionalities. We currently support overloading these operations:
+\begin{itemize}
+	\item Addition (+). Its magic method is \lstinline|__add__(self, other)|.
+	\item Multiplication (*). Its magic method is \lstinline|__mul__(self, other)|.
+	\item Bitwise or (|). Its magic method is \lstinline|__or__(self, other)|.
+	\item Bitwise xor (\textrm{\^}). Its magic method is \lstinline|__xor__(self, other)|.
+\end{itemize}
+Constraints of these operations explained in Section \ref{sec:exp_rules} are modified to include classes which implement the above methods. For example, the addition disjunction is augmented with the constraint that the left operand implements \lstinline|__add__|, and the right operand is a subtype of the argument in this implementation (the argument \lstinline|other| in the list above), and the result type is the return type of this method.
 \section{Inference Output}
 After all the type constraints are collected, the Z3 solver is queried to check the satisfiability of these constraints. If the constraints are satisfiable, then a model is generated in which a type is assigned to every Z3 constant in the SMT problem. These types are used to construct a typed abstract syntax tree, in which each variable has an annotation indicating its type. Otherwise, a list of the conflicting constraints are returned.
 \subsection{Typed AST}
