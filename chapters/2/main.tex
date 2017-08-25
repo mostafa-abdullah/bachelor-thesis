@@ -286,6 +286,7 @@ As mentioned before, our inference tool is based on a static type system that we
 	\item \lstinline|exec| and \lstinline|eval| commands are not supported.
 	\item Inheriting from built-in types is not supported.
 	\item It is not possible to define new function decorators, and using built-in decorators is currently limited to \lstinline|@staticmethod| and \lstinline|@abstractmethod| decorators.
+	\item Attribute deletion is not supported because in a nominal static type system, all instances of a certain type are expected to have the same attribute everywhere in the program.
 \end{enumerate}
 
 \subsubsection{Syntax}
