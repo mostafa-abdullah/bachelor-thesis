@@ -1139,6 +1139,64 @@ import X as x
 from X import A as a, B as b
 \end{lstlisting}
 In this case, the alias is added to the context instead of the actual name itself.
+
+\subsection{Interfaces}
+Our type system is a static nominal one. However, we support partial structural subtyping through interfaces. With an interface, structural properties, like iteration or hashing, can be added to user-defined classes. We support some of the interfaces defined in the \lstinline|typing| module of Python. We support the following interfaces:
+\begin{itemize}
+\item \lstinline|Sized|
+\item \lstinline|Hashable|
+\item \lstinline|Iterable[T]|
+\end{itemize}
+
+Interfaces are introduced as normal types in the type system and are encoded accordingly. For each interface, a corresponding magic method must be present in the class which implements this interface. A magic method is a special method which adds a certain property to a type. The name of magic methods usually begins with two underscores. Examples of magic methods are \lstinline|__init__|, \lstinline|__add__|, \lstinline|__len__| and \lstinline|__iter__|. If this magic method exists in a class definition, a subtype property is added between this class and the corresponding interface in the inheritance DAG introduced in Section \ref{sec:sub_encode}.
+
+\subsubsection{Sized}
+The magic method of the \lstinline|Sized| interface is \lstinline|__len__(self)|. So an edge between classes implementing this method and the \lstinline|Sized| type is added to the inheritance DAG. Built-in types which internally implement this method are also connected to the \lstinline|Sized| type in the DAG. \lstinline|Sized| interface is useful for restricting the \lstinline|len| built-in function to only accept sized objects. See the following example:
+\begin{lstlisting}
+class A:
+	def __len__(self):
+		pass
+		
+def get_size(x: Sized):
+	return len(x)
+	
+
+size_of_a = get_size(A())  # type: int
+size_of_list = get_size([1, 2, 3])  # type: int
+\end{lstlisting}
+
+\subsubsection{Hashable}
+The magic method of the \lstinline|Hashable| interface is \lstinline|__hash__(self)|. Similarly to \lstinline|Sized|, subtyping relationships are added between the classes which implement this method and the \lstinline|Hashable| interface in the DAG. The \lstinline|Hashable| interface is useful for restricting the type of the keys in a dictionary and the type of elements in a set to be hashable.
+
+\subsubsection{Iterable}
+Similarly, the presence of \lstinline|__iter__| method inside a class indicates that this class implements the \lstinline|Iterable| interface. Iterable objects can act as iteration variables in \lstinline|for| loops and in comprehensions. A user-defined type can be used as an iteration variable by implementing the \lstinline|Iterable| interface. See the following example:
+\begin{lstlisting}
+class A:
+	def __iter__(self) -> List[int]: ...
+
+def sum_elements(x):
+	result = 0
+	for i in x:
+		result += i
+	
+	return result
+	
+sum_elements([1,2,3])
+sum_elements(A())
+\end{lstlisting}
+The argument \lstinline|x| in the function \lstinline|sum_elements| is inferred to have type \lstinline|Iterable[int]|, since it is the common interface implemented by \lstinline|List[int]| and \lstinline|A|.
+
+The encoding of \lstinline|Iterable| interface is different from the other ones since it is composed of a generic type (e.g., \lstinline|Iterable[int]|, \lstinline|Iterable[str]|). In case of built-in types that are composed of generics (e.g., lists), a quantification is performed on the generic type in the subtyping constraint. Recall the lists subtyping constraints explained in Section \ref{sec:builtin_generic_encoding}, interfaces are included as follows:
+\begin{lstlisting}
+ForAll([x, y], subtype(List(x), y) ==
+	Or(
+		y == List(x),
+		y == Iterable(x),
+		y == object,
+	)
+)
+\end{lstlisting}
+For user-defined classes, the type of generic in the iterable is unified with the return type of the \lstinline|__iter__| method which the class implements.
 \section{Inference Output}
 After all the type constraints are collected, the Z3 solver is queried to check the satisfiability of these constraints. If the constraints are satisfiable, then a model is generated in which a type is assigned to every Z3 constant in the SMT problem. These types are used to construct a typed abstract syntax tree, in which each variable has an annotation indicating its type. Otherwise, a list of the conflicting constraints are returned.
 \subsection{Typed AST}

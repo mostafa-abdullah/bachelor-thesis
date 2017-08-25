@@ -94,7 +94,7 @@ Now the types of the type system defined in the previous chapter are encoded in 
 
 It is worth mentioning that all the built-in types could be encoded the way user-defined class are encoded, since every type in Python 3 is a class definition. However, classes inference has significant costs in terms of performance. Therefore, it was more convenient to encode the most common built-in types, like \lstinline|int|, \lstinline|float|, etc., with separate constructors.
 
-\section{Subtyping Rules Encoding}
+\section{Subtyping Rules Encoding}\label{sec:sub_encode}
 Having explained the encoding of the types in Z3, we explain here how the subtype relationships between these types are encoded. The subtype relationships discussed in the previous chapter are encoded using an uninterpreted function \lstinline|subtype|, which takes two types, encoded in the \textit{type sort} data-type, as its arguments and returns a \lstinline|Bool| sort.
 \begin{lstlisting}
 subtype = Function("subtype", type_sort, type_sort, BoolSort())
@@ -166,7 +166,7 @@ Figure \ref{fig:dag} shows a subgraph of the constructed DAG with a subset of th
 	\label{fig:dag}
 \end{figure}
 
-\subsection{Builtins with Generic Types}
+\subsection{Builtins with Generic Types}\label{sec:builtin_generic_encoding}
 To generate the subtype axioms for types containing generics (e.g., lists, dicts and tuples), a universal quantification is performed over all possible types for the generics. The example below, in Z3Py syntax, shows the generated axiom for the subtype relationship between lists and \lstinline|object|:
 \begin{lstlisting}
 ForAll([x, y], subtype(List(x), y) ==
