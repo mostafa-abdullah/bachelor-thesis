@@ -6,7 +6,7 @@ As mentioned earlier, we depend primarily on Z3 to provide a model in which a ty
 \section{Types Encoding}
 A Python type is encoded in Z3 with a data-type declaration, which we call \textit{type sort}. From this data-type, multiple constructors are declared, each representing a corresponding type in the Python type system.\\
 
-\subsection{Built-ins}
+\subsection{Built-ins}\label{sec:builtin_enc}
 Most built-in types are simply declared with a \textit{type sort} constructor. If a built-in type is composed of other one or more types (e.g., lists, dictionaries, etc.), accessor arguments representing these types are declared within the constructor declaration. Below is a listing, written in Z3Py, of some types declarations from the \textit{type sort} data-type.
 
 \begin{lstlisting}[language=python]

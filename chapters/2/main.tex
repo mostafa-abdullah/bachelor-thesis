@@ -280,12 +280,7 @@ As mentioned before, our inference tool is based on a static type system that we
 	\item Elements in list or a set should have the same type.
 	
 	Note that elements in sets, lists and dictionaries are allowed to have different runtime type. However during the type inference, we should be able to give them the same static type which allows any operation performed on any of these elements.
-	\item Using reflective or introspective properties of Python is not allowed.
-	\item Modifying global variables using \lstinline|global| keyword is not supported.
-	\item It is not possible to dynamically create and infer modules during runtime.
-	\item \lstinline|exec| and \lstinline|eval| commands are not supported.
 	\item Inheriting from built-in types is not supported.
-	\item It is not possible to define new function decorators, and using built-in decorators is currently limited to \lstinline|@staticmethod| and \lstinline|@abstractmethod| decorators.
 	\item Attribute deletion is not supported because in a nominal static type system, all instances of a certain type are expected to have the same attribute everywhere in the program.
 \end{enumerate}
 
