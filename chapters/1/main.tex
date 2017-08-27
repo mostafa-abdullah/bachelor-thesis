@@ -20,16 +20,33 @@ The intention of the above program was to add the number \lstinline|2| to the va
 
 In this thesis, we are presenting a tool for static type inference and static type checking for a subset of Python 3. The aim of the tool is to gain the benefits of static typing while maintaining some (yet not all) dynamic features of Python. We discuss later the details of the dynamic limitations imposed on the supported Python programs.\\
 
+The goal of the thesis is to provide type inference rules that are sound in terms of static type checking. It is worth mentioning that we perform whole program analysis, that is we do not provide local or modular type inference. The whole program must be available and given to the type inference. The reason for this is the types of some constructs in the program might depend on other parts in the program. See the following example for illustration:
+\begin{lstlisting}
+class A:
+	z = 1
+class B:
+	z = "string"
+	
+def f(x, y):
+	x.z += y
+\end{lstlisting}
+We have two classes \lstinline|A| and \lstinline|B|. Each of them defines a class attribute \lstinline|z|. The type of \lstinline|z| in class \lstinline|A| is \lstinline|int|, while the one in \lstinline|B| has the type \lstinline|str|. Function \lstinline|f| takes a variable \lstinline|x|, accesses its attribute \lstinline|z| and adds \lstinline|y| to it. From this function definition, we can know that the type of the argument \lstinline|x| is either \lstinline|A| or \lstinline|B|, the only classes which contain the attribute \lstinline|z|. The type of \lstinline|y| depends on the type assigned to \lstinline|x|. If \lstinline|x| is of type \lstinline|A|, then \lstinline|y| must be numeric type (e.g., \lstinline|int|, \lstinline|float|). If \lstinline|x| is an instance of \lstinline|B|, \lstinline|y| must be \lstinline|str|. Note that we cannot give polymorphic type to the function \lstinline|f| by having the type of \lstinline|x| to be \lstinline|Union[A, B]| and the type of \lstinline|y| to be \lstinline|Union[int, str]|, because this allows a function call like \lstinline|f(B(), 1)|, which will fail at runtime. It is also not correct to give one of these two type assignments to the function \lstinline|f| because the other one might be required be other parts of the program. Now assume that this function \lstinline|g| exists in the program:
+\begin{lstlisting}
+def g(x):
+	f(x, "string")
+\end{lstlisting}
+The call to \lstinline|f| inside \lstinline|g| assigns the type \lstinline|str| to \lstinline|y|. Accordingly, the type of \lstinline|x| is function \lstinline|f| is inferred to be of type \lstinline|B| not \lstinline|A|. This clarifies the need to do whole program inference instead of a local one in order to have sound type inference rules.
+
 The type inference is based on a nominal static type system which is a subset from the type system of Python 3. It follows the semantics introduced in PEP 484 \cite{484}. The type inference is intended to be integrated into Lyra and Nagini, two ongoing projects at the Chair of Programming Methodology at ETH Zurich, which aim to develop a static analyzer and a program verifier for Python programs.
 
 We present a new approach for tackling the type inference problem. We make use of Satisfiability Modulo Theories (SMT) solving to assign inferred types to program constructs. Each sentence and expression in the program impose one or more new constraints, then the SMT solver is queried for a satisfying solution to these constraints. We will go through the details of the approach and the SMT encoding in later chapters.\\
  
 This thesis is divided into six chapters. The second chapter presents the background information that will help the reader comprehend the rest of the thesis. It reviews the already existing type inference algorithms and the past work done in this area, explains the syntax and the type system rules of the subset of Python 3 that our tool supports and explains the SMT concepts that we will be using throughout the thesis.
 
-In the third chapter, we introduce the MT encoding of the type system that we support. We also state and justify the limitations of this type system.
+In the third chapter, we introduce the SMT encoding of the type system that we support. We also state the limitations of this type system.
 
-In the forth chapter, we describe the design and the implementation of the type inference algorithm in depth. We explain the components of the tool and all the SMT constraints for all the language constructs that we support.
+In the forth chapter, we describe the design and the implementation of the type inference algorithm in depth. We explain the components of the tool and all the SMT constraints generated for all the language constructs that we support.
 
-The fifth chapter explains the experiments we have done to test the tool. We also highlight the current limitations of the type inference and problems it faces with certain types of programs.
+The fifth chapter explains the experiments we have done to test the tool. We also highlight the current limitations of the type inference and problems it faces with certain types of programs and suggest the future work and research that is encouraged to be performed on our tool.
 
-Finally in the sixth chapter, we review our work and suggest more improvements in the future.
+Finally in the sixth chapter, we review our work and discuss the conclusion of this thesis.
