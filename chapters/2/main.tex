@@ -61,12 +61,14 @@ Note that for simplicity, we consider \lstinline|complex| to be a super type of 
 \cite{porto} does not give a way for handling the above constraints. It only states that the function arguments are inferred in a separate context without giving any insights into how the function body would affect the inferred types for the function arguments.
 
 
-\subsection{Starkiller}
-// TODO
-
-\subsection{PyType}
-// TODO
-
+\subsection{Starkiller \cite{starkiller}}
+Starkiller is a type inferencer and compiler for Python. It is based on the Cartesian Product algorithm to infer the types that every variable may have at runtime with some limitations. The goal of the type inference in Starkiller is not to provide any static type checking, but to give any possible type than any variable can achieve in order to be used in optimizing the compiler it presents. Therefore, it does not provide sound type inference in terms of static type checking. For example, Starkiller's type inference and compiler will not reject the following program:
+\begin{lstlisting}
+x = 1
+x = "string"
+y = x + 3
+\end{lstlisting}
+Because according to its type inference algorithm, \lstinline|x| can achieve the type \lstinline|int| at runtime (from the first assignment statement), so the addition operation in the third line is valid. Starkiller focuses on improving the runtime performance, but at the cost of the runtime safety.
 
 \section{SMT Solving with Z3 \cite{z3}}
 \textbf{Satisfiability Modulo Theories (SMT)} is a decision problem for first-order logic formulas. Which means, it is the problem which determines whether a given first-order logic formula, whose variables may have several interpretations, is satisfiable or not.
