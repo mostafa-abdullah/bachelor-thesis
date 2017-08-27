@@ -10,12 +10,19 @@ Many attempts have been made to infer types for dynamically-typed languages, spe
 There are two type inference algorithms primarily used nowadays: Hindley-Milner algorithm and the Cartesian Product algorithm.
 
 \subsubsection{Hindley-Milner}
-// TODO
-\subsubsection{Cartesian Product}
-// TODO
+Hindley-Milner (HM) is a type system for the labmda calculus, defined by J. Roger Hindley and Robin Milner \cite{hindley, milner}. They invented a type inference algorithm for this type system that is constraint-based. The HM algorithm is known for inferring the most general type for the programs providing parametric polymorphism without the need to write any type annotations. The HM algorithm is primarily used in functional programming languages like Haskell and ML.
 
-\subsection{PEP 484}
-// TODO
+The standard HM algorithm is not applicable to object oriented languages, since the concepts of subtyping which are the basis of object orient languages are not considered in the algorithm. For example, as discussed in the introduction, within a nominal type system, there may be many types given to the following function:
+\begin{lstlisting}
+def f(x):
+	return x.a
+\end{lstlisting}
+So inferring the most general type done by the HM algorithm is not possible.
+\subsubsection{Cartesian Product}
+The Cartesian Product is an algorithm for the inference of function calls presented by Agesen \cite{cpa}. It is usually coupled with an iterative analysis for the inference for function bodies. It works be allocating type variables to all the program variables, then it builds a graph in which the nodes represent type variables and the edges represent constraints between these type variables. The types that a variable may achieve at runtime is determined by following the constraints which start from the type variable of this node. The Cartesian Product algorithm is useful in determining all the possible types that a variable may achieve at runtime. This is useful in compilation and program analysis, however it does not guarantee a sound type checking.
+
+\subsection{PEP 484 \cite{484}}
+In Python, functions and variables can have type annotations to indicate the type that they will achieve at runtime. By default, these type annotations do not provide any static type checking. They are useful for documentation, static analyzers and static type checkers. PEP 484 defines the syntax that governs writing these type annotations. It introduces a module to provide these standard definitions. In this thesis and as we will discuss in the upcoming chapters, all the type representation and the types included in our type system are compatible with the definitions introduced in PEP 484. For example, the annotation representing a list whose elements have some type \lstinline|T| is written as \lstinline|List[T]|. For a complete guide of the syntax, we advice the reader to refer back to the complete proposal of PEP 484 \cite{484}.
 
 \subsection{Mypy \cite{mypy}}
 Mypy is a static type checker for Python. It depends on defining type annotations for almost all the constructs in the Python program to be checked. In addition, it performs local type inference. However, this type inference cannot be extended beyond local scopes. It requires that function definitions and local variables to be fully type-annotated and cannot infer function calls whose return type annotation is not specified. For example, mypy will fail to infer the type of variable \lstinline|x| in the following program:
