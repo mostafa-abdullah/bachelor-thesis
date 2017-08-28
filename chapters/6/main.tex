@@ -2,3 +2,16 @@
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 
 \chapter{Conclusion}\label{chapter:conc}
+In this thesis, we presented a static type inference for Python based on SMT solving. We proved SMT to be capable of simulating a complex structure like the type system of Python and to be useful in solving a complicated system of constraints like the ones imposed by the type inference rules.
+
+The goal of the thesis was to provide a static type inference which is sound in terms of the static type system but not necessarily complete. From the perspective of this thesis, soundness is more important than completeness because accepting type errors can incur significant costs compared to rejecting a correct program.
+
+We took a new approach for tackling the type inference problem by encoding the type system in an SMT solver, doing whole program analysis, collecting constraints from the whole program and querying the SMT solver for the types that each variable is allowed to have at runtime which satisfy the imposed constraints.
+
+Particularly, we defined a static type system for Python 3 which makes the static type inference possible. We also defined subtyping relationships between the types in this type system and presented the limitations imposed on the dynamic nature of Python due to having a static type system (Chapter \ref{chapter:background}).
+
+In addition, we presented the encoding of this static type system in the SMT solver Z3 and how we make of different Z3 constructs (e.g., data types and uninterpreted functions) to provide a concise encoding (Chapter \ref{chapter:ts}).
+
+We also provided type inference rules for all the Python constructs that we support and presented a complete implementation for the type inference algorithm (Chapter \ref{chapter:ti}). We evaluated the type inference by giving it a variety of Python programs which focus on different Python semantics as well as some open source Python projects (Chapter \ref{chapter:eval}).
+
+Although the type inference is still in an elementary stage and imposes multiple restrictions on the inferable programs, being the first to tackle the type inference problem with SMT solving poses many interesting questions and opens multiple possibilities for future research. The work on this tool does not stop with this thesis. We will keep enlarging the subset of the Python language which we support and increase the completeness of the tool.
