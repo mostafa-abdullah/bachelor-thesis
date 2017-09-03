@@ -18,9 +18,9 @@ num = num + "2"
 
 The intention of the above program was to add the number \lstinline|2| to the variable \lstinline|num|, not the \lstinline|string| representation of this number. This small mistake goes unnoticed at compile time, and leads the program to raise an exception during runtime.\\
 
-In this thesis, we are presenting a tool for static type inference and static type checking for a subset of Python 3. The aim of the tool is to gain the benefits of static typing while maintaining some (yet not all) dynamic features of Python. We discuss later the details of the dynamic limitations imposed on the supported Python programs.\\
+In this thesis, we are presenting a tool for static type inference and static type checking for a subset of Python 3. The aim of the tool is to gain the benefits of static typing while maintaining some (yet not all) dynamic features of Python. We discuss later in this thesis the details of the dynamic limitations imposed on the supported Python programs.\\
 
-The goal of the thesis is to provide type inference rules that are sound in terms of static type checking. It is worth mentioning that we perform whole program analysis, that is we do not provide local or modular type inference. The whole program must be available and given to the type inference. The reason for this is the types of some constructs in the program might depend on other parts in the program. See the following example for illustration:
+The goal of the thesis is to provide type inference rules that are sound in terms of static type checking, that is they reject any program which has any type error. It is worth mentioning that we perform whole program analysis, that is we do not provide local or modular type inference. The whole program must be available and given to the type inference. The reason for this is that the types of some constructs in the program might depend on other parts in the program. See the following example for illustration:
 \begin{lstlisting}
 class A:
 	z = 1
@@ -45,8 +45,8 @@ This thesis is divided into six chapters. The second chapter presents the backgr
 
 In the third chapter, we introduce the SMT encoding of the type system that we support. We also state the limitations of this type system.
 
-In the forth chapter, we describe the design and the implementation of the type inference algorithm in depth. We explain the components of the tool and all the SMT constraints generated for all the language constructs that we support.
+In the fourth chapter, we describe the design and the implementation of the type inference algorithm in depth. We explain the components of the tool and all the SMT constraints generated for all the language constructs that we support.
 
-The fifth chapter explains the experiments we have done to test the tool. We also highlight the current limitations of the type inference and problems it faces with certain types of programs and suggest the future work and research that is encouraged to be performed on our tool.
+The fifth chapter explains the experiments we have done to test the tool. We also highlight the current limitations of the type inference and the problems it faces with certain types of programs and suggest the future work and research that is encouraged to be performed on our tool.
 
 Finally in the sixth chapter, we review our work and discuss the conclusion of this thesis.

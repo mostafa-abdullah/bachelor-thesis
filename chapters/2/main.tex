@@ -12,20 +12,20 @@ There are two type inference algorithms primarily used nowadays: Hindley-Milner 
 \subsubsection{Hindley-Milner}
 Hindley-Milner (HM) is a type system for the labmda calculus, defined by J. Roger Hindley and Robin Milner \cite{hindley, milner}. They invented a type inference algorithm for this type system that is constraint-based. The HM algorithm is known for inferring the most general type for the programs providing parametric polymorphism without the need to write any type annotations. The HM algorithm is primarily used in functional programming languages like Haskell and ML.
 
-The standard HM algorithm is not applicable to object oriented languages, since the concepts of subtyping which are the basis of object orient languages are not considered in the algorithm. For example, as discussed in the introduction, within a nominal type system, there may be many types given to the following function:
+The standard HM algorithm is not applicable to object oriented languages, since the concept of subtyping which is the basis of object oriented languages are is considered in the algorithm. For example, as discussed in the introduction, within a nominal type system, there may be many types given to the following function:
 \begin{lstlisting}
 def f(x):
 	return x.a
 \end{lstlisting}
 So inferring the most general type done by the HM algorithm is not possible.
 \subsubsection{Cartesian Product}
-The Cartesian Product is an algorithm for the inference of function calls presented by Agesen \cite{cpa}. It is usually coupled with an iterative analysis for the inference for function bodies. It works be allocating type variables to all the program variables, then it builds a graph in which the nodes represent type variables and the edges represent constraints between these type variables. The types that a variable may achieve at runtime is determined by following the constraints which start from the type variable of this node. The Cartesian Product algorithm is useful in determining all the possible types that a variable may achieve at runtime. This is useful in compilation and program analysis, however it does not guarantee a sound type checking.
+The Cartesian Product is an algorithm for the inference of the types of function calls presented by Agesen \cite{cpa}. It is usually coupled with an iterative analysis for the inference of function bodies. It works by allocating type variables for all the program variables, then it builds a graph in which the nodes represent type variables and the edges represent constraints between these type variables. The types that a variable may achieve at runtime are determined by following the constraints which start from the type variable of this node. The Cartesian Product algorithm is useful in determining all the possible types that a variable may achieve at runtime. This is useful in compilation and program analysis, however it does not guarantee a sound type checking.
 
 \subsection{PEP 484 \cite{484}}
-In Python, functions and variables can have type annotations to indicate the type that they will achieve at runtime. By default, these type annotations do not provide any static type checking. They are useful for documentation, static analyzers and static type checkers. PEP 484 defines the syntax that governs writing these type annotations. It introduces a module to provide these standard definitions. In this thesis and as we will discuss in the upcoming chapters, all the type representation and the types included in our type system are compatible with the definitions introduced in PEP 484. For example, the annotation representing a list whose elements have some type \lstinline|T| is written as \lstinline|List[T]|. For a complete guide of the syntax, we advice the reader to refer back to the complete proposal of PEP 484 \cite{484}.
+In Python, functions and variables can have type annotations to indicate the type that they will have at runtime. By default, these type annotations do not provide any static type checking. They are useful for documentation, static analyzers and static type checkers. PEP 484 defines the syntax that governs writing these type annotations. It introduces a module to provide these standard definitions. In this thesis, as we will discuss in the upcoming chapters, all the type representations and the types included in our type system are compatible with the definitions introduced in PEP 484. For example, the annotation representing a list whose elements have some type \lstinline|T| is written as \lstinline|List[T]|. For a complete guide of the syntax, we advice the reader to refer back to the complete proposal of PEP 484 \cite{484}.
 
 \subsection{Mypy \cite{mypy}}
-Mypy is a static type checker for Python. It depends on defining type annotations for almost all the constructs in the Python program to be checked. In addition, it performs local type inference. However, this type inference cannot be extended beyond local scopes. It requires that function definitions and local variables to be fully type-annotated and cannot infer function calls whose return type annotation is not specified. For example, mypy will fail to infer the type of variable \lstinline|x| in the following program:
+Mypy is a static type checker for Python. It depends on defining type annotations for almost all the constructs in the Python program to be checked. In addition, it performs local type inference. However, this type inference cannot be extended beyond local scopes. It requires that function definitions and local variables to be fully type-annotated and cannot infer the types of function calls whose return type annotation is not specified. For example, mypy will fail to infer the type of variable \lstinline|x| in the following program:
 
 \begin{lstlisting}[language=Python]
 def f():
@@ -33,33 +33,29 @@ def f():
 
 x = f()  # Infer type Any for x
 \end{lstlisting}
+Mypy cannot infer the type of the function call \lstinline|f()|, which is \lstinline|str|. It says that the type of this call can be of \textit{any} type.
 
-What mypy intends to provide is closely related to one of the goals of our tool, that is to provide static type checking for the program. However, we aim to reduce (and sometimes eliminate) the writing overhead in defining the type annotations for the program constructs by inferring the types of all these constructs in the program.
-
+What mypy intends to provide is closely related to one of the goals of our tool, that is to provide static type checking for the program. However, we aim to eliminate the writing overhead in defining the type annotations for the program constructs by inferring the types of all these constructs in the program.
 
 \subsection{Inferência de tipos em Python \cite{porto}}
 The thesis \cite{porto} describes a static type system defined for a restricted version of RPython, which is a subset of Python, and presents static type inference ideas based on this type system. The work presented in \cite{porto} also describes type inference implementation for Python expressions (like numbers, lists, dictionaries, binary and
-unary operations, etc.), assignment statements and conditional statements. It also gives an idea about inferring calls to polymorphic and non-polymorphic functions, class definitions and class instantiation. However, the approach they take has a handful of limitations and is not applicable to real Python code. It failed to provide a type inference implementation for the ideas it proposed. Also, It does not describe inferring function arguments, which is a critical step in the inference of function definitions and function calls. Accordingly, and similar to mypy, the inference they present is not extensible beyond local scopes inference.
-
+unary operations, etc.), assignment statements and conditional statements. They also give an idea about inferring the types of calls to polymorphic and non-polymorphic functions, class definitions and class instantiation. However, the approach they take has a handful of limitations and is not applicable to real Python code. They failed to provide a type inference implementation for the ideas they proposed. Also, they do not describe inferring the types of function parameters, which is a critical step in the inference of the types of function definitions and function calls. Accordingly, and similarly to mypy, the inference they present is not extensible beyond local scopes inference.
 See the following example for illustration:
 
 \begin{lstlisting}[language=Python]
 def add(x, y):
 	return x + y
 \end{lstlisting}
-
-The addition operation in Python can only be applied on numeric type as arithmetic addition or on sequences as sequence concatenation. Therefore, the inferred types for the function arguments \lstinline|x| and \lstinline|y| should be one of the following possibilities:
+The addition operation in Python can only be applied on numeric type as arithmetic addition, or on sequences as sequence concatenation. Therefore, for types of the function arguments \lstinline|x| and \lstinline|y|, we have the following possibilities:
 \begin{itemize}
 	\item \lstinline|x <: complex|, \lstinline|y <: complex|, \lstinline|x <: y|, \lstinline|return == y|
 	\item \lstinline|x <: complex|, \lstinline|y <: complex|, \lstinline|y <: x|, \lstinline|return == x|
 	\item \lstinline|x <: Seqence|, \lstinline|y <: Sequence|, \lstinline|x <: y|, \lstinline|return == y|
 	\item \lstinline|x <: Seqence|, \lstinline|y <: Sequence|, \lstinline|y <: x|, \lstinline|return == x|
 \end{itemize}
+Note that for simplicity, we consider \lstinline|complex| to be a super type of all numeric types in Python. This is not precisely true with respect to the Python type system. However, this is acceptable because all numeric types are type-compatible with \lstinline|complex| types, that is all numeric types can be used whenever \lstinline|complex| is expected.
 
-Note that for simplicity, we consider \lstinline|complex| to be a super type of all numeric types in Python. This is not precisely true with respect to the Python type system. However, this is acceptable because all numeric types are type-compatible with \lstinline|complex| types, that is all numeric types can be used whenever \lstinline|complex| is expected.\\
-
-\cite{porto} does not give a way for handling the above constraints. It only states that the function arguments are inferred in a separate context without giving any insights into how the function body would affect the inferred types for the function arguments.
-
+\cite{porto} does not give a way for handling the above constraints. they only state that the function arguments are inferred in a separate context without giving any insights into how the function body would affect the inferred types of the function parameters. In addition, there is no implementation available for their proposed type inference.
 
 \subsection{Starkiller \cite{starkiller}}
 Starkiller is a type inferencer and compiler for Python. It is based on the Cartesian Product algorithm to infer the types that every variable may have at runtime with some limitations. The goal of the type inference in Starkiller is not to provide any static type checking, but to give any possible type than any variable can achieve in order to be used in optimizing the compiler it presents. Therefore, it does not provide sound type inference in terms of static type checking. For example, Starkiller's type inference and compiler will not reject the following program:
@@ -71,17 +67,13 @@ y = x + 3
 Because according to its type inference algorithm, \lstinline|x| can achieve the type \lstinline|int| at runtime (from the first assignment statement), so the addition operation in the third line is valid. Starkiller focuses on improving the runtime performance, but at the cost of the runtime safety.
 
 \section{SMT Solving with Z3 \cite{z3}}
-\textbf{Satisfiability Modulo Theories (SMT)} is a decision problem for first-order logic formulas. Which means, it is the problem which determines whether a given first-order logic formula, whose variables may have several interpretations, is satisfiable or not.
+\textbf{Satisfiability Modulo Theories (SMT)} is a decision problem for first-order logic formulas. Which means, it is the problem to determine whether a given first-order logic formula, whose variables may have several interpretations, is satisfiable or not.
 
-SMT solving is a generalization of boolean satisfiability (SAT) solving. It can reason about a larger set of first-order theories than SAT theories, like those involving real numbers, integers, bit vectors and arrays.\\
+SMT solving is a generalization of boolean satisfiability (SAT) solving. It can reason about a larger set of first-order theories than SAT theories, like those involving real numbers, integers, bit vectors and arrays.The SMT model is a mapping from the formula symbols to some values which satisfy the imposed constraints.
 
-The SMT model is a mapping from the formula symbols to some values which satisfy the imposed constraints.
+\textbf{Z3 \cite{z3}} is an efficient SMT solver, developed by Microsoft Research with built-in support many theories like linear and nonlinear arithmetic, bit vectors, arrays, data-types, quantifiers, strings, etc. Z3 is now widely used in software analysis and program verification. For instance, 50 bugs were found in Windows kernel code after using Z3 to verify Windows components \cite{expz3}.
 
-\textbf{Z3 \cite{z3}} is an efficient SMT solver, developed by Microsoft Research in 2007 with built-in support many theories like linear and nonlinear arithmetic, bit vectors, arrays, data-types, quantifiers, strings, etc.
-
-Z3 is now widely used in software analysis and program verification. For instance, 50 bugs were found in Windows kernel code after using Z3 to verify Windows components. \cite{expz3}\\
-
-In our static type inference tool, we depend primarily on Z3 to provide a types model that satisfies all the Python program semantics.
+In our static type inference tool, we collect constrains from the Python program, and we depend primarily on Z3 to provide a types model that satisfies all these constraints.
 
 \subsection{Z3 constructs}
 We explain here all the relevant Z3 constructs that we will be using in our tool. For convenience, we will provide the explanation of these constructs in Z3Py, a Python interface for the Z3 solver, since we will be using this interface constructs throughout this thesis. This section targets the readers who are new to Z3. Those who are already familiar with Z3 can skip this section.
