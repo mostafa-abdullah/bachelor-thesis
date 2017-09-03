@@ -3,22 +3,16 @@
 
 \chapter{Introduction}\label{chapter:introduction}
 
-“The cost to fix an error found after product release was four to five times as much as one uncovered during design, and up to 100 times more than one identified in the maintenance phase.”, reported by the System Science Institute at IBM. This fact justifies the increasing investments in software analysis, software verification and the need to make programs more reliable and safe.\\
+“The cost to fix an error found after product release was four to five times as much as one uncovered during design, and up to 100 times more than one identified in the maintenance phase.”, according to the System Science Institute at IBM. This fact justifies the increasing investments in software analysis, software verification and the need to make programs more reliable and safe.\\
 
-In Python, being a dynamically-typed language, the variables are bound to their types during the execution time. This is appealing because programs have more type flexibility, and they do not need to contain the writing overhead for the type system, leading to shorter and quicker to write code. However, this comes at the cost of losing many static guarantees of program correctness. Dynamically-typed languages perform type checking at runtime, while statically typed languages perform type checking at compile time. Therefore, some type errors that can be detected at compile time in a statically-typed system, may lead the system to crash at runtime in a dynamically-typed one, incurring high costs and a harder debugging experience.
-
-See the following Python example:
-
+In Python, being a dynamically-typed language, variables are bound to their types during the execution time. This is appealing because programs have more type flexibility, and they do not need to contain the writing overhead for the type system, leading to shorter and quicker to write code. However, this comes at the cost of losing many static guarantees of program correctness. Dynamically-typed languages perform type checking at runtime, while statically typed languages perform type checking at compile time. Therefore, some type errors that can be detected at compile time in a statically-typed system, may lead the system to crash at runtime in a dynamically-typed one, incurring high costs and a harder debugging experience. See the following Python example:
 \begin{lstlisting}[language=python]
 num = 1
 num = num + "2"
 \end{lstlisting}
+The intention of the above program was to add the number \lstinline|2| to the variable \lstinline|num|, not the \lstinline|string| representation of this number. If this small mistake goes unnoticed at compile time, it will lead the program to raise an exception during runtime.\\
 
-
-
-The intention of the above program was to add the number \lstinline|2| to the variable \lstinline|num|, not the \lstinline|string| representation of this number. This small mistake goes unnoticed at compile time, and leads the program to raise an exception during runtime.\\
-
-In this thesis, we are presenting a tool for static type inference and static type checking for a subset of Python 3. The aim of the tool is to gain the benefits of static typing while maintaining some (yet not all) dynamic features of Python. We discuss later in this thesis the details of the dynamic limitations imposed on the supported Python programs.\\
+In this thesis, we present a tool for static type inference and static type checking for a subset of Python 3. The aim of the tool is to gain the benefits of static typing while maintaining some (yet not all) dynamic features of Python. We discuss later in this thesis the details of the dynamic limitations imposed on the supported Python programs.\\
 
 The goal of the thesis is to provide type inference rules that are sound in terms of static type checking, that is they reject any program which has any type error. It is worth mentioning that we perform whole program analysis, that is we do not provide local or modular type inference. The whole program must be available and given to the type inference. The reason for this is that the types of some constructs in the program might depend on other parts in the program. See the following example for illustration:
 \begin{lstlisting}
@@ -30,23 +24,23 @@ class B:
 def f(x, y):
 	x.z += y
 \end{lstlisting}
-We have two classes \lstinline|A| and \lstinline|B|. Each of them defines a class attribute \lstinline|z|. The type of \lstinline|z| in class \lstinline|A| is \lstinline|int|, while the one in \lstinline|B| has the type \lstinline|str|. Function \lstinline|f| takes a variable \lstinline|x|, accesses its attribute \lstinline|z| and adds \lstinline|y| to it. From this function definition, we can know that the type of the argument \lstinline|x| is either \lstinline|A| or \lstinline|B|, the only classes which contain the attribute \lstinline|z|. The type of \lstinline|y| depends on the type assigned to \lstinline|x|. If \lstinline|x| is of type \lstinline|A|, then \lstinline|y| must be numeric type (e.g., \lstinline|int|, \lstinline|float|). If \lstinline|x| is an instance of \lstinline|B|, \lstinline|y| must be \lstinline|str|. Note that we cannot give polymorphic type to the function \lstinline|f| by having the type of \lstinline|x| to be \lstinline|Union[A, B]| and the type of \lstinline|y| to be \lstinline|Union[int, str]|, because this allows a function call like \lstinline|f(B(), 1)|, which will fail at runtime. It is also not correct to give one of these two type assignments to the function \lstinline|f| because the other one might be required be other parts of the program. Now assume that this function \lstinline|g| exists in the program:
+We have two classes \lstinline|A| and \lstinline|B|. Each of them defines a class attribute \lstinline|z|. The type of \lstinline|z| in class \lstinline|A| is \lstinline|int|, while the one in \lstinline|B| has the type \lstinline|str|. Function \lstinline|f| takes a variable \lstinline|x|, accesses its attribute \lstinline|z| and adds \lstinline|y| to it. From this function definition, we can know that the type of the parameter \lstinline|x| is either \lstinline|A| or \lstinline|B|, the only classes which contain the attribute \lstinline|z|. The type of \lstinline|y| depends on the type assigned to \lstinline|x|. If \lstinline|x| is of type \lstinline|A|, then \lstinline|y| must be numeric type (e.g., \lstinline|int|, \lstinline|float|). If \lstinline|x| is an instance of \lstinline|B|, \lstinline|y| must be \lstinline|str|. Note that we cannot give polymorphic type to the function \lstinline|f| by having the type of \lstinline|x| to be \lstinline|Union[A, B]| and the type of \lstinline|y| to be \lstinline|Union[int, str]|, because this allows a function call like \lstinline|f(B(), 1)|, which will fail at runtime. It is also not correct to give one of these two type assignments to the function \lstinline|f| because the other one might be required by other parts of the program. Now assume that this function \lstinline|g| exists in the program:
 \begin{lstlisting}
 def g(x):
 	f(x, "string")
 \end{lstlisting}
 The call to \lstinline|f| inside \lstinline|g| assigns the type \lstinline|str| to \lstinline|y|. Accordingly, the type of \lstinline|x| is function \lstinline|f| is inferred to be of type \lstinline|B| not \lstinline|A|. This clarifies the need to do whole program inference instead of a local one in order to have sound type inference rules.
 
-The type inference is based on a nominal static type system which is a subset from the type system of Python 3. It follows the semantics introduced in PEP 484 \cite{484}. The type inference is intended to be integrated into Lyra and Nagini, two ongoing projects at the Chair of Programming Methodology at ETH Zurich, which aim to develop a static analyzer and a program verifier for Python programs.
+The type inference is based on a nominal static type system which is a subset of the type system of Python 3. It follows the semantics introduced in PEP 484 \cite{484}. The type inference is intended to be integrated into Lyra and Nagini, two ongoing projects at the Chair of Programming Methodology at ETH Zurich, which aim to develop a static analyzer and a program verifier for Python programs.
 
-We present a new approach for tackling the type inference problem. We make use of Satisfiability Modulo Theories (SMT) solving to assign inferred types to program constructs. Each sentence and expression in the program impose one or more new constraints, then the SMT solver is queried for a satisfying solution to these constraints. We will go through the details of the approach and the SMT encoding in later chapters.\\
+We present a new approach for tackling the type inference problem. We make use of Satisfiability Modulo Theories (SMT) solving to assign inferred types to program constructs. Each statement and expression in the program imposes one or more new constraints, then the SMT solver is queried for a satisfying solution to these constraints. We will go through the details of the approach and the SMT encoding in later chapters.\\
  
 This thesis is divided into six chapters. The second chapter presents the background information that will help the reader comprehend the rest of the thesis. It reviews the already existing type inference algorithms and the past work done in this area, explains the syntax and the type system rules of the subset of Python 3 that our tool supports and explains the SMT concepts that we will be using throughout the thesis.
 
 In the third chapter, we introduce the SMT encoding of the type system that we support. We also state the limitations of this type system.
 
-In the fourth chapter, we describe the design and the implementation of the type inference algorithm in depth. We explain the components of the tool and all the SMT constraints generated for all the language constructs that we support.
+In the fourth chapter, we describe the design and the implementation of the type inference algorithm in depth. We explain the components of the tool and the SMT constraints generated for all the language constructs that we support.
 
-The fifth chapter explains the experiments we have done to test the tool. We also highlight the current limitations of the type inference and the problems it faces with certain types of programs and suggest the future work and research that is encouraged to be performed on our tool.
+The fifth chapter explains the experiments we have done to test the tool. We also highlight the current limitations of the type inference and the problems it faces with certain types of programs.
 
-Finally in the sixth chapter, we review our work and discuss the conclusion of this thesis.
+Finally in the sixth chapter, we review our work, discuss the conclusion of this thesis and we suggest the future work and research that is encouraged to be performed on our tool.

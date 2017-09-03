@@ -4,7 +4,7 @@
 \chapter{Background Information}\label{chapter:background}
 
 \section{Related Work}
-Many attempts have been made to infer types for dynamically-typed languages, specifically Python, each of which had its own goals and limitations. We discuss here some work that we have studied, and we present some of their limitations and their similarities and differences with our tool.
+Many attempts have been made to infer types for dynamically-typed languages, specifically Python, each of which had its own goals and limitations. We discuss here some work that we have studied, and we present their limitations and their similarities and differences with our tool.
 
 \subsection{Type Inference Algorithms}
 There are two type inference algorithms primarily used nowadays: Hindley-Milner algorithm and the Cartesian Product algorithm.
@@ -12,12 +12,11 @@ There are two type inference algorithms primarily used nowadays: Hindley-Milner 
 \subsubsection{Hindley-Milner}
 Hindley-Milner (HM) is a type system for the labmda calculus, defined by J. Roger Hindley and Robin Milner \cite{hindley, milner}. They invented a type inference algorithm for this type system that is constraint-based. The HM algorithm is known for inferring the most general type for the programs providing parametric polymorphism without the need to write any type annotations. The HM algorithm is primarily used in functional programming languages like Haskell and ML.
 
-The standard HM algorithm is not applicable to object oriented languages, since the concept of subtyping which is the basis of object oriented languages are is considered in the algorithm. For example, as discussed in the introduction, within a nominal type system, there may be many types given to the following function:
+The standard HM algorithm is not applicable to object oriented languages, since the concept of subtyping which is the basis of object oriented languages are is considered in the algorithm. Also inferring the most general type within a nominal type system is not always possible. For example, as discussed in the introduction, within a nominal type system, there may be many types given to the following function:
 \begin{lstlisting}
 def f(x):
 	return x.a
 \end{lstlisting}
-So inferring the most general type done by the HM algorithm is not possible.
 \subsubsection{Cartesian Product}
 The Cartesian Product is an algorithm for the inference of the types of function calls presented by Agesen \cite{cpa}. It is usually coupled with an iterative analysis for the inference of function bodies. It works by allocating type variables for all the program variables, then it builds a graph in which the nodes represent type variables and the edges represent constraints between these type variables. The types that a variable may achieve at runtime are determined by following the constraints which start from the type variable of this node. The Cartesian Product algorithm is useful in determining all the possible types that a variable may achieve at runtime. This is useful in compilation and program analysis, however it does not guarantee a sound type checking.
 
@@ -25,7 +24,7 @@ The Cartesian Product is an algorithm for the inference of the types of function
 In Python, functions and variables can have type annotations to indicate the type that they will have at runtime. By default, these type annotations do not provide any static type checking. They are useful for documentation, static analyzers and static type checkers. PEP 484 defines the syntax that governs writing these type annotations. It introduces a module to provide these standard definitions. In this thesis, as we will discuss in the upcoming chapters, all the type representations and the types included in our type system are compatible with the definitions introduced in PEP 484. For example, the annotation representing a list whose elements have some type \lstinline|T| is written as \lstinline|List[T]|. For a complete guide of the syntax, we advice the reader to refer back to the complete proposal of PEP 484 \cite{484}.
 
 \subsection{Mypy \cite{mypy}}
-Mypy is a static type checker for Python. It depends on defining type annotations for almost all the constructs in the Python program to be checked. In addition, it performs local type inference. However, this type inference cannot be extended beyond local scopes. It requires that function definitions and local variables to be fully type-annotated and cannot infer the types of function calls whose return type annotation is not specified. For example, mypy will fail to infer the type of variable \lstinline|x| in the following program:
+Mypy is a static type checker for Python. It depends on defining type annotations for almost all the constructs in the Python program to be checked. In addition, it performs local type inference. However, this type inference cannot be extended beyond local scopes. It requires function definitions and local variables to be fully type-annotated and cannot infer the types of function calls whose return type annotation is not specified. For example, mypy will fail to infer the type of variable \lstinline|x| in the following program:
 
 \begin{lstlisting}[language=Python]
 def f():
@@ -38,15 +37,15 @@ Mypy cannot infer the type of the function call \lstinline|f()|, which is \lstin
 What mypy intends to provide is closely related to one of the goals of our tool, that is to provide static type checking for the program. However, we aim to eliminate the writing overhead in defining the type annotations for the program constructs by inferring the types of all these constructs in the program.
 
 \subsection{Inferência de tipos em Python \cite{porto}}
-The thesis \cite{porto} describes a static type system defined for a restricted version of RPython, which is a subset of Python, and presents static type inference ideas based on this type system. The work presented in \cite{porto} also describes type inference implementation for Python expressions (like numbers, lists, dictionaries, binary and
-unary operations, etc.), assignment statements and conditional statements. They also give an idea about inferring the types of calls to polymorphic and non-polymorphic functions, class definitions and class instantiation. However, the approach they take has a handful of limitations and is not applicable to real Python code. They failed to provide a type inference implementation for the ideas they proposed. Also, they do not describe inferring the types of function parameters, which is a critical step in the inference of the types of function definitions and function calls. Accordingly, and similarly to mypy, the inference they present is not extensible beyond local scopes inference.
+The thesis \cite{porto} describes a static type system defined for a restricted version of RPython, which is a subset of Python, and presents static type inference ideas based on this type system. The work presented in \cite{porto} also describes a type inference implementation for Python expressions (like numbers, lists, dictionaries, binary and
+unary operations, etc.), assignment statements and conditional statements. They also give an idea about inferring the types of calls to polymorphic and non-polymorphic functions, class definitions and class instantiation. However, the approach they take has a handful of limitations and is not applicable to real Python code. They fail to provide a type inference implementation for the ideas they proposed. Also, they do not describe inferring the types of function parameters, which is a critical step in the inference of the types of function definitions and function calls. Accordingly, and similarly to mypy, the inference they present is not extensible beyond local scopes inference.
 See the following example for illustration:
 
 \begin{lstlisting}[language=Python]
 def add(x, y):
 	return x + y
 \end{lstlisting}
-The addition operation in Python can only be applied on numeric type as arithmetic addition, or on sequences as sequence concatenation. Therefore, for types of the function arguments \lstinline|x| and \lstinline|y|, we have the following possibilities:
+The addition operation in Python can only be applied on numeric type as arithmetic addition, or on sequences as sequence concatenation. Therefore, for types of the function parameters \lstinline|x| and \lstinline|y|, we have the following possibilities:
 \begin{itemize}
 	\item \lstinline|x <: complex|, \lstinline|y <: complex|, \lstinline|x <: y|, \lstinline|return == y|
 	\item \lstinline|x <: complex|, \lstinline|y <: complex|, \lstinline|y <: x|, \lstinline|return == x|
@@ -55,21 +54,21 @@ The addition operation in Python can only be applied on numeric type as arithmet
 \end{itemize}
 Note that for simplicity, we consider \lstinline|complex| to be a super type of all numeric types in Python. This is not precisely true with respect to the Python type system. However, this is acceptable because all numeric types are type-compatible with \lstinline|complex| types, that is all numeric types can be used whenever \lstinline|complex| is expected.
 
-\cite{porto} does not give a way for handling the above constraints. they only state that the function arguments are inferred in a separate context without giving any insights into how the function body would affect the inferred types of the function parameters. In addition, there is no implementation available for their proposed type inference.
+\cite{porto} does not describe a way for handling the above constraints. they only state that the types of function parameters are inferred in a separate context without giving any insights into how the function body would affect the inferred types of the function parameters. In addition, there is no implementation available for their proposed type inference.
 
 \subsection{Starkiller \cite{starkiller}}
-Starkiller is a type inferencer and compiler for Python. It is based on the Cartesian Product algorithm to infer the types that every variable may have at runtime with some limitations. The goal of the type inference in Starkiller is not to provide any static type checking, but to give any possible type than any variable can achieve in order to be used in optimizing the compiler it presents. Therefore, it does not provide sound type inference in terms of static type checking. For example, Starkiller's type inference and compiler will not reject the following program:
+Starkiller is a type inferencer and compiler for Python. It is based on the Cartesian Product algorithm to infer the types that every variable may have at runtime with some limitations. The goal of the type inference in Starkiller is not to provide any static type checking, but to give any possible type that any variable can achieve in order to be used in optimizing the compiler it presents. In addition, it is flow insensitive. Therefore, it does not provide sound type inference in terms of static type checking. For example, Starkiller's type inference and compiler will not reject the following program:
 \begin{lstlisting}
 x = 1
 x = "string"
 y = x + 3
 \end{lstlisting}
-Because according to its type inference algorithm, \lstinline|x| can achieve the type \lstinline|int| at runtime (from the first assignment statement), so the addition operation in the third line is valid. Starkiller focuses on improving the runtime performance, but at the cost of the runtime safety.
+Because according to its type inference algorithm, \lstinline|x| can achieve the type \lstinline|int| at runtime (from the first assignment statement), and being flow insensitive, the order of the two assignment statements does not matter. So the addition operation in the third line is valid. Starkiller focuses on improving the runtime performance, but at the cost of the runtime safety.
 
 \section{SMT Solving with Z3 \cite{z3}}
-\textbf{Satisfiability Modulo Theories (SMT)} is a decision problem for first-order logic formulas. Which means, it is the problem to determine whether a given first-order logic formula, whose variables may have several interpretations, is satisfiable or not.
+\textbf{Satisfiability Modulo Theories (SMT)} is a decision problem for first-order logic formulas. It is the problem to determine whether a given first-order logic formula, whose variables may have several interpretations, is satisfiable or not.
 
-SMT solving is a generalization of boolean satisfiability (SAT) solving. It can reason about a larger set of first-order theories than SAT theories, like those involving real numbers, integers, bit vectors and arrays.The SMT model is a mapping from the formula symbols to some values which satisfy the imposed constraints.
+SMT solving is a generalization of boolean satisfiability (SAT) solving. It can reason about a larger set of first-order theories than SAT theories, like those involving real numbers, integers, bit vectors and arrays. An SMT model is a mapping from the formula symbols to some values which satisfy the imposed constraints.
 
 \textbf{Z3 \cite{z3}} is an efficient SMT solver, developed by Microsoft Research with built-in support many theories like linear and nonlinear arithmetic, bit vectors, arrays, data-types, quantifiers, strings, etc. Z3 is now widely used in software analysis and program verification. For instance, 50 bugs were found in Windows kernel code after using Z3 to verify Windows components \cite{expz3}.
 
@@ -95,7 +94,6 @@ solve(x == 1, y == x + 1)
 
 # model: x = 1, y = 2
 \end{lstlisting}
-
 A constant of any sort can be created with the following syntax:
 
 \begin{lstlisting}[language=python]
@@ -122,9 +120,7 @@ Z3 supports the usual logical connectives in first-order logic. It supports nega
 Functions are the basic building blocks of the SMT formula. Every constant can be considered as a function which takes no arguments and returns this constant.
 Z3 functions are \textbf{total} that is they are defined for all the domain elements. Moreover and similar to constants, functions in Z3 are also uninterpreted.
 
-Z3 functions map values from one or more sort (type) of the domain to values from a result sort.
-
-Below is an example that illustrates uninterpreted functions and constants.
+Z3 functions map values from one or more sort (type) of the domain to values from a result sort. Below is an example that illustrates uninterpreted functions and constants.
 
 \begin{lstlisting}[language=python]
 x = Int('x')
@@ -137,9 +133,7 @@ solve(f(f(x)) == x, f(x) == y, x != y)
 \end{lstlisting}
 
 \subsubsection{Data-types}
-Z3 provides a convenient way for declaring algebraic data-types.
-
-Before going through an example, it is important to define two constructs in Z3 data-types: Constructors and accessors. With a \textbf{constructor}, different variants of the data-type can be created. Each of these variants may have its own typed attributes. An \textbf{accessor} is a function that can fetch these attributes stored within a data-type instance.
+Z3 provides a convenient way for declaring algebraic data-types. Before going through an example, it is important to define two constructs in Z3 data-types: Constructors and accessors. With a \textbf{constructor}, different variants of the data-type can be created. Each of these variants may have its own typed attributes. An \textbf{accessor} is a function that can fetch these attributes stored within a data-type instance.
 
 The following example demonstrates declaring and using data-types in Z3. We create a data-type representing a binary tree. The node of this tree may have two variants: Either a leaf with some value attached to it, or an inner node with left and right attributes carrying its left and right subtrees respectively.
 
@@ -151,7 +145,6 @@ Tree.declare("inner_node", ("left", Tree), ("right", Tree))
 
 Tree = Tree.create()
 \end{lstlisting}
-
 A constructor is declared for each variant of the tree node. The leaf has an \lstinline|Int| attribute representing the value it carries. The \lstinline|inner_node| constructor has two arguments. Each attribute has its own accessor function.
 
 \begin{lstlisting}
@@ -162,7 +155,6 @@ left_accessor = Tree.left
 right_accessor = Tree.right
 value_accessor = Tree.value
 \end{lstlisting}
-
 Below is an example of encoding the tree in figure \ref{fig:tree_z3} using the tree data-type declared above:
 
 \begin{figure}[H]
@@ -185,9 +177,7 @@ Below is an example of encoding the tree in figure \ref{fig:tree_z3} using the t
 \subsubsection{Quantifiers}
 In addition to quantifier-free formulas, Z3 can also solve formulas involving quantifiers. Z3 uses different approaches to solve formulas with quantifiers. The only one which we are concerned with and we will be using in our type inference tool is the \textit{pattern-based quantifier instantiation} approach. This approach works by annotating the quantified formula with some pattern annotations, and these formulas are only instantiated when these patterns are syntactically matched during the search for a satisfying model for the formulas.
 
-Z3 supports two kinds of quantifiers: \textit{universal} and \textit{existential} quantifiers.
-
-Below is an example demonstrating using both kinds of quantifiers in Z3Py.
+Z3 supports two kinds of quantifiers: \textit{universal} and \textit{existential} quantifiers. Below is an example demonstrating using both kinds of quantifiers in Z3Py.
 
 \begin{lstlisting}
 x = Int('x')
@@ -198,7 +188,6 @@ ForAll(x, f(x) == x, patterns=[f(x)])
 y = Int('y')
 Exists(y, x + y == 2)
 \end{lstlisting}
-
 The above two axioms are equivalent to the formulas below in first-order logic syntax:\\
 \begin{center}
 	$\forall x\in \mathbb{Z}$, \lstinline|f(x) = x| \\
@@ -207,11 +196,7 @@ The above two axioms are equivalent to the formulas below in first-order logic s
 
 
 \section{Type System}
-A type system is a set of rules that checks the assignment of types to different constructs of the program, such that constructs which have the same type share common behavioral properties. Type systems are useful in preventing the occurrences of certain types of errors before or during the program execution.
-
-Each programming language defines the rules for its type system, and the language compilers and/or interpreters are built based on this type system.
-
-Type systems can be classified as structural type systems, nominal type systems or a hybrid of both. We explain both classes of type systems shortly.
+A type system is a set of rules that checks the assignment of types to different constructs of the program, such that constructs which have the same type share common behavioral properties. Type systems are useful in preventing the occurrences of certain types of errors before or during the program execution. Each programming language defines the rules for its type system, and the language compilers and/or interpreters are built based on this type system. Type systems can be classified as structural type systems, nominal type systems or a hybrid of both. We explain both classes of type systems shortly.
 
 The process of verifying that the program satisfies the rules enforced by the language's type system is called \textit{type checking}. There are two kinds of type checking: \textit{static type checking} and \textit{dynamic type checking}. Accordingly, programming languages are divided to \textit{statically-typed} and \textit{dynamically-typed} languages according to the type checking they perform.
 
@@ -228,7 +213,6 @@ class B {f() {return 1}}
 A x = A()
 B y = x
 \end{lstlisting}
-
 A nominal type system would reject the above program, because there is no explicit subtype relationship between classes \lstinline|A| and \lstinline|B|, so the variable \lstinline|x| of type \lstinline|A| cannot be assigned to the variable \lstinline|y| of type \lstinline|B|. However, a structural type system would allow it because the properties of the two classes are identical. \\
 
 Python uses a structural type system. However in our type inference, we depend on a nominal type system that. We will define this type system in \ref{sub:st_ts_3}.
@@ -258,9 +242,7 @@ x += y
 \end{lstlisting}
 
 \subsection{Subtyping}
-Subtyping is a feature which exists in most programming paradigms. It follows the \textit{substitution principle}, that is if a type A is a subtype of a type B, denoted by \lstinline|A <: B|, then any expression if type A can be safely used in any context where a type B is expected. The type system of each programming language defines its own subtyping rules.
-
-For example, in some programming languages, (e.g., Java), \lstinline|int <: float|, so an integer type can be used in any context where a floating-point type is expected. Therefore, the following Java method is valid according to the subtyping rules of the Java type system.
+Subtyping is a feature which exists in most programming paradigms. It follows the \textit{substitution principle}, that is if a type A is a subtype of a type B, denoted by \lstinline|A <: B|, then any expression if type A can be safely used in any context where a type B is expected. The type system of each programming language defines its own subtyping rules. For example, in some programming languages, (e.g., Java), \lstinline|int <: float|, so an integer type can be used in any context where a floating-point type is expected. Therefore, the following Java method is valid according to the subtyping rules of the Java type system.
 
 \begin{lstlisting}[language=java]
 float add(float x, float y) {
@@ -269,7 +251,6 @@ float add(float x, float y) {
 
 float sum = add(1, 2.5F)
 \end{lstlisting}
-
 Method \lstinline|add| is expecting its two arguments to be of \lstinline|float| type, whereas an \lstinline|int| is passed as its first argument.
 
 
@@ -321,10 +302,9 @@ t = None | object | bool | int | float | complex | string | bytes
 	| Type[t] | T
 	
 \end{lstlisting}
-
 Where \lstinline|t*| represents a collection of types of arbitrary length and \lstinline|T| represents an instance of a user-defined type.
 
-Note that most other built-in types belong to user-defined types domain, since they are inferred as normal user-defined classes from our stub files. Stub files contain functions and classes that simulate other functionalities like built-ins and low level code. \\
+Note that most other built-in types belong to the user-defined types domain, since they are inferred as normal user-defined classes from our stub files. Stub files contain functions and classes that simulate other functionalities like built-ins and low level code. \\
 
 The subtype relationships between the above types are defined by the following rules:
 
@@ -342,8 +322,7 @@ T <: U iff extends(T, U) $\lor$ $\exists$V: extends(T, V) $\land$ V <: U
 	
 $\forall$t t <: object
 \end{lstlisting}
-
-where \lstinline|extends(a, b)| is True if class a explicitly inherits from class b,
+Where \lstinline|extends(a, b)| is True if class a explicitly inherits from class b,
 and False otherwise.
 
 Note that as mentioned earlier, there is not subtype relationship between \lstinline|int| and \lstinline|float| and between \lstinline|float| and \lstinline|complex| in the Python type system. However, for simplicity, we claim this relationship since these types are type-compatible with each other, so that we do not need to define special rules for numeric types which will be the same as the subtyping rules defined for other types.
